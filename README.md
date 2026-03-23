@@ -7,7 +7,6 @@ The Docker image `fabianhk/dystar-with-code-server` provides a lightweight DY* d
 ### Linux
 
 ```bash
-mkdir workspace
 docker compose up
 ```
 
