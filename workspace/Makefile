@@ -121,7 +121,7 @@ clean:
 # Run extracted OCaml (local build)
 OCAMLBUILD ?= ocamlbuild
 
-OCAML_MAIN := DY_Example_Login_Debug
+OCAML_MAIN := DY_Demo_Debug
 OCAML_EXE  := $(OCAML_MAIN).native
 STAGE_DIR  := $(OBJ_DIR)/_ocaml_stage
 
