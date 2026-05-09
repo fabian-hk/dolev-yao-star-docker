@@ -1,6 +1,8 @@
 services:
   code-server:
-    build: .
+    build:
+      context: ${BUILD_CONTEXT}
+      dockerfile: ${DOCKER_FILE}
     container_name: code-server
     environment:
       - PUID=1000
@@ -14,7 +16,7 @@ services:
       - DEFAULT_WORKSPACE=/home/user/workspace #optional
       - PWA_APPNAME=code-server #optional
     volumes:
-      - $PWD/workspace:/home/user/workspace
+      - ${WORKSPACE:-$PWD/workspace}:/home/user/workspace
     ports:
       - 127.0.0.1:8443:8443
     restart: unless-stopped

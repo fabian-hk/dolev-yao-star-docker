@@ -30,6 +30,7 @@ RUN opam init -y
 RUN opam update
 RUN opam switch create fstar 4.14.2
 RUN eval $(opam env --switch=fstar) && opam pin add -y fstar "git+https://github.com/FStarLang/FStar.git#0cbbc9bd61f64977cc534977a858e9291eab69cc"
+RUN eval $(opam env --switch=fstar) && opam install -y curly
 
 WORKDIR /home/user
 RUN mkdir workspace
@@ -51,9 +52,10 @@ RUN cat >> /home/user/.bashrc <<'EOF'
 export PATH="/home/user/.opam/fstar/bin:$PATH"
 export COMPARSE_HOME="/home/user/comparse"
 export DY_HOME="/home/user/dolev-yao-star-extrinsic"
+export DY_WEB="/home/user/dolev-yao-star-preliminary-web"
 EOF
 
-# Set up DY Star
+# Set up DY*
 WORKDIR /home/user
 RUN git clone https://github.com/fabian-hk/comparse.git
 RUN git clone https://github.com/REPROSEC/dolev-yao-star-extrinsic.git
@@ -66,6 +68,13 @@ ENV DY_HOME=/home/user/dolev-yao-star-extrinsic
 WORKDIR /home/user/comparse
 RUN make -j 12
 
-# Build DY Star
+# Build DY*
 WORKDIR /home/user/dolev-yao-star-extrinsic
+RUN git checkout fabian-hk/development
+RUN make -j 12
+
+# Include and build DY* preliminary Web
+RUN mkdir -p /home/user/dolev-yao-star-preliminary-web
+COPY . /home/user/dolev-yao-star-preliminary-web
+WORKDIR /home/user/dolev-yao-star-preliminary-web
 RUN make -j 12
