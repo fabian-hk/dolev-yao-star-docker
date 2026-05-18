@@ -3,3 +3,5 @@ hints/
 obj/
 .depend
 .envrc
+*.png
+*.plantuml

@@ -12,21 +12,24 @@
 # ------------------------------------------------------------------------
 
 # Environment & Paths
-PROJECT_HOME   := .
+PROJECT_HOME   ?= .
 DY_HOME        ?= $(abspath $(PROJECT_HOME)/../dolev-yao-star-extrinsic)
 COMPARSE_HOME  ?= $(abspath $(PROJECT_HOME)/../comparse)
+DY_WEB  ?= $(abspath $(DY_WEB)/../dolev-yao-star-preliminary-web)
 
 # Executables
 FSTAR_EXE ?= fstar.exe
-Z3_EXE    ?= z3
+Z3_EXE    ?= z3-4.15.3
 
 # Project configuration (relative)
-SOURCE_DIR := src
-CACHE_DIR  := cache
-HINT_DIR   := hints
-OBJ_DIR    := obj
+SOURCE_ROOTS := $(PROJECT_HOME)/src/cat-fact-api $(PROJECT_HOME)/src/hands-on-session $(PROJECT_HOME)/src/potter-api
+CACHE_DIR  := $(PROJECT_HOME)/cache
+HINT_DIR   := $(PROJECT_HOME)/hints
+OBJ_DIR    := $(PROJECT_HOME)/obj
 OUT_DIRS   := $(CACHE_DIR) $(HINT_DIR) $(OBJ_DIR)
 MKDIR_P    ?= mkdir -p
+DEPEND_FILE := $(PROJECT_HOME)/.depend
+DEPEND_TMP  := $(PROJECT_HOME)/.depend.tmp
 
 # Dependency setup (explicit DY* dirs, local src dirs)
 DY_SRC := $(DY_HOME)/src
@@ -37,13 +40,15 @@ DY_STAR_DIRS := \
 	$(DY_LIB) \
 	$(addprefix $(DY_LIB)/,$(DY_LIB_SUBDIRS))
 
-SOURCE_DIRS := $(shell find $(SOURCE_DIR) -type d -name "_build" -prune -o -type d -print | sort)
+SOURCE_DIRS := $(shell find $(SOURCE_ROOTS) -type d -name "_build" -prune -o -type d -print | sort)
 
 INCLUDE_PATHS := \
 	$(DY_HOME)/cache \
 	$(COMPARSE_HOME)/cache \
 	$(COMPARSE_HOME)/src \
 	$(DY_STAR_DIRS) \
+	$(DY_WEB)/cache \
+	$(DY_WEB)/src \
 	$(SOURCE_DIRS)
 
 FSTAR_INCLUDE_FLAGS := $(addprefix --include , $(INCLUDE_PATHS))
@@ -63,7 +68,7 @@ FSTAR_FLAGS := $(FSTAR_INCLUDE_FLAGS) \
 	--z3version 4.15.3
 
 # Source discovery (exclude _build subtree)
-FSTAR_ROOTS := $(shell find $(SOURCE_DIR) \
+FSTAR_ROOTS := $(shell find $(SOURCE_ROOTS) \
 	-type d -name "_build" -prune -o \
 	-type f \( -name "*.fst" -o -name "*.fsti" \) -print)
 FSTAR_ROOTS_FST := $(filter %.fst,$(FSTAR_ROOTS))
@@ -80,9 +85,9 @@ all: codegen
 
 # Dependency graph generation
 ifndef MAKE_RESTARTS
-.depend: .force-deps
+$(DEPEND_FILE): .force-deps
 	@echo "[DEPENDENCY] Generating dependency graph..."
-	@$(FSTAR_EXE) $(FSTAR_FLAGS) --dep full $(notdir $(FSTAR_ROOTS)) > .depend.tmp && mv .depend.tmp .depend
+	@$(FSTAR_EXE) $(FSTAR_FLAGS) --dep full $(notdir $(FSTAR_ROOTS)) > $(DEPEND_TMP) && mv $(DEPEND_TMP) $(DEPEND_FILE)
 	@echo "[SUCCESS] Dependency graph extracted to $@"
 
 .force-deps:
@@ -91,16 +96,18 @@ endif
 ifneq ($(filter clean debug,$(MAKECMDGOALS)),)
 # skip dependency inclusion for non-build targets
 else
--include .depend
+-include $(DEPEND_FILE)
 endif
 
 # Verification rules
-$(CACHE_DIR)/%.checked: $(SOURCE_DIR)/% | $(OUT_DIRS)
+vpath %.fst $(SOURCE_DIRS)
+vpath %.fsti $(SOURCE_DIRS)
 
+$(CACHE_DIR)/%.checked: % | $(OUT_DIRS)
 	@echo "[VERIFY] $*"
 	@$(FSTAR_EXE) $(FSTAR_FLAGS) -c $< -o $@ && touch -c $@
 
-verify: .depend $(ALL_CHECKED_FILES)
+verify: $(DEPEND_FILE) $(ALL_CHECKED_FILES)
 	@echo "[SUCCESS] All local files verified."
 
 # Extraction (codegen) rule
@@ -116,12 +123,12 @@ $(OUT_DIRS):
 	@$(MKDIR_P) $@
 
 clean:
-	rm -rf $(CACHE_DIR) $(HINT_DIR) $(OBJ_DIR) .depend .depend.tmp
+	rm -rf $(CACHE_DIR) $(HINT_DIR) $(OBJ_DIR) $(DEPEND_FILE) $(DEPEND_TMP)
 
 # Run extracted OCaml (local build)
 OCAMLBUILD ?= ocamlbuild
 
-OCAML_MAIN := DY_Demo_Debug
+OCAML_MAIN ?= DY_CatFactAPI_Debug
 OCAML_EXE  := $(OCAML_MAIN).native
 STAGE_DIR  := $(OBJ_DIR)/_ocaml_stage
 
@@ -140,7 +147,7 @@ $(STAGE_DIR):
 $(STAGE_DIR)/$(OCAML_EXE): $(OCAML_INPUTS) | $(STAGE_DIR)
 	@echo "[OCAML] Staging .ml into $(STAGE_DIR)..."
 	@rm -f "$(STAGE_DIR)"/*.ml 2>/dev/null || true
-	@for d in "$(DY_HOME)/obj" "$(COMPARSE_HOME)/obj" "$(OBJ_DIR)"; do \
+	@for d in "$(DY_HOME)/obj" "$(COMPARSE_HOME)/obj" "$(DY_WEB)/obj" "$(OBJ_DIR)"; do \
 	  for f in "$$d"/*.ml; do \
 	    [ -e "$$f" ] && ln -sf "$$(cd "$$d" && pwd)/$$(basename "$$f")" "$(STAGE_DIR)/"; \
 	  done; \
@@ -148,9 +155,42 @@ $(STAGE_DIR)/$(OCAML_EXE): $(OCAML_INPUTS) | $(STAGE_DIR)
 
 	@echo "[OCAML] Building $(OCAML_EXE)..."
 	@cd "$(STAGE_DIR)" && \
-	  OCAMLFIND_IGNORE_DUPS_IN="$(shell ocamlc -where):$(shell opam var lib)/num" \
-	  $(OCAMLBUILD) -use-ocamlfind -pkg batteries -pkg fstar.lib \
-	    -cflags "-w -a -thread" "$(OCAML_EXE)"
+	OCAMLFIND_IGNORE_DUPS_IN="$(shell ocamlc -where):$(shell opam var lib)/num" \
+	$(OCAMLBUILD) -use-ocamlfind -tag thread -pkg batteries -pkg fstar.lib \
+		-pkg threads \
+		-pkg curly \
+		-cflags "-w -a -thread" "$(OCAML_EXE)"
+
+EXTRACTION_MAIN ?= DY_CatFactAPI_Extraction
+EXTRACTIONL_EXE  := $(EXTRACTION_MAIN).native
+EXTRACTION_STAGE_DIR  := $(OBJ_DIR)/_ocaml_stage_extraction
+
+$(EXTRACTION_STAGE_DIR):
+	@mkdir -p $@
+
+$(EXTRACTION_STAGE_DIR)/$(EXTRACTIONL_EXE): $(OCAML_INPUTS) | $(EXTRACTION_STAGE_DIR)
+	@echo "[OCAML] Staging .ml into $(EXTRACTION_STAGE_DIR)..."
+	@rm -f "$(EXTRACTION_STAGE_DIR)"/*.ml 2>/dev/null || true
+	@for d in "$(DY_HOME)/obj" "$(COMPARSE_HOME)/obj" "$(DY_WEB)/obj" "$(OBJ_DIR)"; do \
+	  for f in "$$d"/*.ml; do \
+	    [ -e "$$f" ] && ln -sf "$$(cd "$$d" && pwd)/$$(basename "$$f")" "$(EXTRACTION_STAGE_DIR)/"; \
+	  done; \
+	done; :
+
+	@for d in "$(DY_WEB)/extraction"; do \
+	  for f in "$$d"/*.ml; do \
+	    [ -e "$$f" ] && ln -sf "$$(cd "$$d" && pwd)/$$(basename "$$f")" "$(EXTRACTION_STAGE_DIR)/"; \
+	  done; \
+	done; :
+
+	@echo "[OCAML] Building $(EXTRACTIONL_EXE)..."
+	@cd "$(EXTRACTION_STAGE_DIR)" && \
+	OCAMLFIND_IGNORE_DUPS_IN="$(shell ocamlc -where):$(shell opam var lib)/num" \
+	$(OCAMLBUILD) -use-ocamlfind -tag thread -pkg batteries -pkg fstar.lib -pkg threads -pkg curly \
+		-cflags "-w -a -thread" "$(EXTRACTIONL_EXE)"
+
+extract: codegen $(EXTRACTION_STAGE_DIR)/$(EXTRACTIONL_EXE)
+	@$(EXTRACTION_STAGE_DIR)/$(EXTRACTIONL_EXE)
 
 # Debugging
 debug:

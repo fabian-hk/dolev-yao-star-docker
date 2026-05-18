@@ -9,7 +9,9 @@
     "--z3version", "4.15.3"
   ],
   "include_dirs": [
-    "src/",
+    "src/cat-fact-api",
+    "src/hands-on-session",
+    "src/potter-api",
 
     "${COMPARSE_HOME}/src",
     "${COMPARSE_HOME}/cache",
@@ -24,6 +26,8 @@
     "${DY_HOME}/src/lib/utils",
     "${DY_HOME}/src/lib/communication",
     "${DY_HOME}/src/lib/label",
-    "${DY_HOME}/cache"
+    "${DY_HOME}/cache",
+
+    "${DY_WEB}/src"
   ]
 }
