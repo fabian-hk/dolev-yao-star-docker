@@ -33,3 +33,19 @@ docker compose up
 ```bash
 docker compose up
 ```
+
+## First Steps
+
+- Open http://localhost:8443 in your browser
+- Make sure to trust the workspace
+- Open a terminal and run `make` to build the project. It should successfully verify all files.
+
+## Troubleshooting
+
+### VS Code does not show green verification bar on the left side
+
+Possible reasons are:
+
+ - Make sure you trust the workspace. When you first open the editor, VS Code may prompt you to trust it, or you can use the small banner at the top to configure workspace trust.
+ - If verification appears stalled, restart the F* compiler by closing the file in VS Code and reopening it.
+ - If only parts of a file are verified, the remaining code is likely not verifiable. Check those sections for unproven definitions or unsupported constructs.
