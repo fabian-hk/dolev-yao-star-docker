@@ -53,7 +53,10 @@ export COMPARSE_HOME="/home/user/comparse"
 export DY_HOME="/home/user/dolev-yao-star-extrinsic"
 export DY_WEB="/home/user/dolev-yao-star-preliminary-web"
 
-alias dystartool=". /home/user/dolev-yao-star-tools/venv/bin/activate && OPEN_VIEWER=false /home/user/dolev-yao-star-tools/dystar_tool.py vis"
+dystartools() {
+  ( . /home/user/dolev-yao-star-tools/venv/bin/activate \
+    && OPEN_VIEWER=false /home/user/dolev-yao-star-tools/dystar_tool.py vis $@ -n "")
+}
 EOF
 
 # Set up DY*

@@ -5,7 +5,7 @@ let rec fibonacci n =
   if n <= 1 then n 
   else (
     let res:int = fibonacci (n-1) + fibonacci (n-2) in
-    res  
+    res
   )
 
 let test_fibonacci () =
@@ -30,11 +30,16 @@ val fibonacci_greater_than_arg:
     fibonacci n >= n
   )
 let rec fibonacci_greater_than_arg n =
-  if n <= 7 then () else (
-    fibonacci_greater_than_arg (n-1);
-    fibonacci_greater_than_arg (n-2);
-    ()
+  if n < 5 then assert(False) else (
+    if n <= 7 then () else (
+      fibonacci_greater_than_arg (n-1);
+      fibonacci_greater_than_arg (n-2);
+      ()
+    )
   )
+
+
+(*** More examples ***)
 
 type shape =
   | Square: w:nat -> shape
@@ -48,8 +53,6 @@ let perimeter s =
   | Rectangle w h -> op_Multiply 2 w + op_Multiply 2 h
   | Triangle a b c -> a + b + c
 
-
-(*** More examples ***)
 
 val square: int -> int
 let square n = op_Multiply n n

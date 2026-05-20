@@ -6,6 +6,12 @@ open DY.Lib
 
 open DY.Lib.Web
 
+(*
+  DY* model describing a client interaction with the
+  CatFact API endpoint:
+  https://catfact.ninja/fact?max_length=140
+*)
+
 [@@with_bytes bytes]
 type state_t =
   | SendRequest: http_meta_data web_types kv_types -> state_t

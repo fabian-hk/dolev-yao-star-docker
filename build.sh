@@ -1,7 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-IMAGE="fabianhk/dystar-with-code-server:latest"
+IMAGE_BASE="fabianhk/dystar-with-code-server"
+# Fixed default tag (do not override)
+DEFAULT_TAG="latest"
+# Optionally provide an extra tag via env var EXTRA_TAG or as first CLI arg.
+EXTRA_TAG="${EXTRA_TAG:-${1:-}}"
+
 PLATFORMS="linux/amd64,linux/arm64"
 BUILDER_NAME="dystar_builder"
 CONTEXT_DIR="${BUILD_CONTEXT:-$(pwd)}"
@@ -27,17 +32,25 @@ else
   docker buildx use "$BUILDER_NAME"
 fi
 
-echo "Building and pushing $IMAGE for platforms: $PLATFORMS"
+echo "Building and pushing images for platforms: $PLATFORMS"
 
 echo "Context: $CONTEXT_DIR"
 echo "Dockerfile: $DOCKER_FILE"
 
-export DOCKER_BUILDKIT=1
-docker buildx build \
-  --platform "$PLATFORMS" \
-  -t "$IMAGE" \
-  --file "$DOCKER_FILE" \
-  --push \
-  "$CONTEXT_DIR"
+# Prepare tag list (always push DEFAULT_TAG, optionally EXTRA_TAG)
+TAGS=("$IMAGE_BASE:$DEFAULT_TAG")
+if [ -n "$EXTRA_TAG" ] && [ "$EXTRA_TAG" != "$DEFAULT_TAG" ]; then
+  TAGS+=("$IMAGE_BASE:$EXTRA_TAG")
+fi
 
-echo "Done: pushed $IMAGE"
+echo "Will push tags: ${TAGS[*]}"
+
+export DOCKER_BUILDKIT=1
+build_cmd=(docker buildx build --platform "$PLATFORMS" --file "$DOCKER_FILE" --push "$CONTEXT_DIR")
+for t in "${TAGS[@]}"; do
+  build_cmd+=( -t "$t" )
+done
+
+"${build_cmd[@]}"
+
+echo "Done: pushed ${TAGS[*]}"

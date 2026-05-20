@@ -123,12 +123,12 @@ $(OUT_DIRS):
 	@$(MKDIR_P) $@
 
 clean:
-	rm -rf $(CACHE_DIR) $(HINT_DIR) $(OBJ_DIR) $(DEPEND_FILE) $(DEPEND_TMP)
+	rm -rf $(CACHE_DIR) $(HINT_DIR) $(OBJ_DIR) $(DEPEND_FILE) $(DEPEND_TMP) *.png *.puml
 
 # Run extracted OCaml (local build)
 OCAMLBUILD ?= ocamlbuild
 
-OCAML_MAIN ?= DY_CatFactAPI_Debug
+OCAML_MAIN ?= DY_HandsOnSession_Debug
 OCAML_EXE  := $(OCAML_MAIN).native
 STAGE_DIR  := $(OBJ_DIR)/_ocaml_stage
 
@@ -138,7 +138,7 @@ COMPARSE_ML  = $(wildcard $(COMPARSE_HOME)/obj/*.ml)
 PROJ_ML      = $(wildcard $(OBJ_DIR)/*.ml)
 OCAML_INPUTS = $(DY_ML) $(COMPARSE_ML) $(PROJ_ML)
 
-test: codegen $(STAGE_DIR)/$(OCAML_EXE)
+debug: codegen $(STAGE_DIR)/$(OCAML_EXE)
 	@$(STAGE_DIR)/$(OCAML_EXE)
 
 $(STAGE_DIR):
@@ -161,7 +161,7 @@ $(STAGE_DIR)/$(OCAML_EXE): $(OCAML_INPUTS) | $(STAGE_DIR)
 		-pkg curly \
 		-cflags "-w -a -thread" "$(OCAML_EXE)"
 
-EXTRACTION_MAIN ?= DY_CatFactAPI_Extraction
+EXTRACTION_MAIN ?= DY_HandsOnSession_Extraction
 EXTRACTIONL_EXE  := $(EXTRACTION_MAIN).native
 EXTRACTION_STAGE_DIR  := $(OBJ_DIR)/_ocaml_stage_extraction
 
@@ -193,7 +193,7 @@ extract: codegen $(EXTRACTION_STAGE_DIR)/$(EXTRACTIONL_EXE)
 	@$(EXTRACTION_STAGE_DIR)/$(EXTRACTIONL_EXE)
 
 # Debugging
-debug:
+debug-make:
 	@printf "FSTAR_EXE:      %s\n" "$(FSTAR_EXE)"
 	@printf "Z3_EXE:         %s\n" "$(Z3_EXE)"
 	@printf "PROJECT_HOME:   %s\n" "$(PROJECT_HOME)"

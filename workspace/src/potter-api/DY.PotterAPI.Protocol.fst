@@ -6,6 +6,12 @@ open DY.Lib
 
 open DY.Lib.Web
 
+(*
+  DY* model describing a client interaction with the
+  Potter API endpoint:
+  https://potterapi-fedeperin.vercel.app/en/spells/random
+*)
+
 [@@with_bytes bytes]
 type state_t =
   | SendRequest: http_meta_data web_types kv_types -> state_t

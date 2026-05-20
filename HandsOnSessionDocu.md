@@ -36,9 +36,11 @@ type kv_types: eqtype =
  | VP: p:principal -> kv_types
  | VB: b:bytes -> kv_types
  | VID: i:id -> kv_types
+ | VI: i:int -> kv_types
 ```
 
 ## Header
+
 ```ocaml
 let headers:list header = [] in
 ```

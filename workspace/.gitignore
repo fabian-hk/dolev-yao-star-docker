@@ -4,4 +4,4 @@ obj/
 .depend
 .envrc
 *.png
-*.plantuml
+*.puml
