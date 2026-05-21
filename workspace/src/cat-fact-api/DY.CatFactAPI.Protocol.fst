@@ -37,7 +37,7 @@ let api_request comm_keys_ids client server =
     query = [{ key = "max_length"; value = VI 140 } <: key_value kv_types];
     fragment = {identifier = ""; data = []};
   } in
-  let headers = [
+  let headers:list (header kv_types) = [
     Accept "application/json";
   ] in
   let http_req = mk_http_request GET u headers empty_body in

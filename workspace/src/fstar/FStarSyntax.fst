@@ -1,10 +1,10 @@
 module FStarSyntax
 
-val fibonacci: nat -> int
+val fibonacci: nat -> nat
 let rec fibonacci n =
   if n <= 1 then n 
   else (
-    let res:int = fibonacci (n-1) + fibonacci (n-2) in
+    let res:nat = fibonacci (n-1) + fibonacci (n-2) in
     res
   )
 

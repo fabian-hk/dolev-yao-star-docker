@@ -11,7 +11,7 @@ let	   (* Computation that does not depend on the global trace and cannot fail *
 ## State Handling
 
 ```ocaml
-let* sid:sess_id = new_session_id alice in
+let* sid:sess_id = new_session_id principal in
 set_state principal sess_id st;*
 let*? st = get_state principal sess_id in
 ```
