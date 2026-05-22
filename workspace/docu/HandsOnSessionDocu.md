@@ -1,32 +1,38 @@
 # Hands-on-Session DY* Documentation
 
+This document contains the most important DY* functions and code patterns used during the hands-on session. DY* protocols are modeled as event-driven state machines whose execution is recorded in a global symbolic trace containing all protocol events and exchanged messages. Functions returning `traceful SOME TYPE` interact with this symbolic execution state and therefore depend on the current global trace.
+
+A more detailed documentation of DY* can be found [here](https://reprosec.org/dolev-yao-star-documentation/) (should not be necessary to look into it for this hands-on-session).
+
 ## Different Types of Let Bindings
 
 ```ocaml
-let*   (* Computation that depends on the global trace *)
-let*?  (* Computation that depends on the global trace and can fail *)
+let*   (* Computation that depends on the global trace, e.g. traceful SOME TYPE *)
+let*?  (* Computation that depends on the global trace and may return None on failure, e.g. traceful (option SOME TYPE) *)
 let	   (* Computation that does not depend on the global trace and cannot fail *)
 ```
 
 ## State Handling
 
+The following state handling functions assume that the protocol uses the type `state_t` for the protocol.
+
 ```ocaml
-let* sid:sess_id = new_session_id principal in
-set_state principal sess_id st;*
-let*? st = get_state principal sess_id in
+val new_session_id: principal -> traceful sess_id
+val set_state: principal -> sess_id -> state_t -> unit
+val get_state: principal -> sess_id -> traceful (option state_t)
 ```
 
 ## URL
 
 ```ocaml
-let u:url kv_types = {
+type url = {
    protocol:string;
    domain = {root_domain:principal; sub_domain = ""};
    port:int;
    path:string;
    query = [{ key:string; value:kv_types } <: key_value kv_types];
    fragment = {identifier = ""; data = []};
- } in
+ }
 ```
 
 These are the possible values for the value in the query:
@@ -41,8 +47,13 @@ type kv_types: eqtype =
 
 ## Header
 
+Example header:
+
 ```ocaml
-let headers:list header = [] in
+let headers:list header = [
+  Host "example.com" 443;
+  ContentType "application/json"
+] in
 ```
 
 These are the possible types for the item in the headers list:
@@ -58,8 +69,14 @@ type header (a:eqtype): eqtype =
 
 ## Send Request
 ```ocaml
-let http_req:http_request = mk_http_request method url (list header) empty_body in
-let*? (msg_id, hmeta_data):(timestamp & http_meta_data) = send_https_request communication_keys_sess_ids principal (url kv_types) http_request in
+val mk_http_request: method -> url -> (list header) -> web_types -> http_request (* Use empty_body as the web_types here *)
+val send_https_request: communication_keys_sess_ids -> principal -> url -> http_request -> traceful (option (timestamp & http_meta_data))
+```
+
+Example send HTTPS request function call:
+
+```ocaml
+let*? (msg_id, hmeta_data) = send_https_request comm_keys_ids client url http_req in
 ```
 
 These are the possible values for method:
@@ -72,13 +89,21 @@ type method =
 ## Receiving Request
 
 ```ocaml
-let*? (http_req, hmeta_data):(http_request & http_meta_data) = receive_https_request communication_keys_sess_ids principal timestamp in
+val receive_https_request: communication_keys_sess_ids -> principal -> timestamp -> traceful (option (http_request & http_meta_data))
+```
+
+Example receive HTTPS request function call:
+
+```ocaml
+let*? (http_req, hmeta_data) = receive_https_request comm_keys_ids server msg_id in
 ```
 
 ## Web Types
 
+Example body:
+
 ```ocaml
-let body:web_types = JSON [] in
+let body:web_types = JSON [{key="username"; value=VS "Alice"}] in
 ```
 
 These are the possible values for web_types:
@@ -96,25 +121,40 @@ type web_kv: eqtype = {
 ## Send Response
 
 ```ocaml
-let http_res:http_response = mk_http_response nat (list header) web_types in
-let*? msg_id_out:timestamp = send_https_response principal http_meta_data http_response in
+val mk_http_response: nat (* Status code *) -> (list header) -> web_types (* Body *) -> http_response
+val send_https_response: principal -> http_meta_data -> http_response -> traceful (option timestamp)
 ```
 
 ## Receive Response
 
 ```ocaml
-let*? (http_res, hmeta_data):(http_response & http_meta_data) = receive_https_response http_meta_data principal timestamp in
+val receive_https_response: http_meta_data -> principal -> timestamp -> traceful (option (http_response & http_meta_data))
 ```
 
-## Parse Data From Web Types
+## Extract Data From JSON Bodies
 
 ```ocaml
-let*? value:string = return (get_string_from_json_encoded string web_types) in
-let*? value:int = return (get_int_from_json_encoded string web_types) in
+val get_string_from_json_encoded: string -> web_types -> option string
+val get_int_from_json_encoded: string -> web_types -> option int in
+```
+
+Example extraction function call:
+
+```ocaml
+let*? username = return (get_string_from_json_encoded "username" http_res.body) in
 ```
 
 ## Print a String on the Console
 
+Example string printing function:
+
 ```ocaml
-let _ = IO.debug_print_string (Printf.sprintf "value=%s\n" value) in
+let _ = IO.debug_print_string (Printf.sprintf "username=%s\n" username) in
 ```
+
+The formatting options are the same as for the C `printf` function:
+
+- `%s`: string
+- `%d`: integer
+- `\n`: new line
+- ...
