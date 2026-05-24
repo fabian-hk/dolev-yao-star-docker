@@ -51,7 +51,7 @@ val api_server: communication_keys_sess_ids -> principal -> timestamp -> tracefu
 let api_server comm_keys_ids server msg_id =
   let*? (http_req, hmeta_data) = receive_https_request comm_keys_ids server msg_id in
   let headers:list (header kv_types) = [ContentType "application/json"] in
-  let body = JSON [{key = "fact"; value = VS "Cats are great!" }] in
+  let body = JSON [{key = "fact"; value = VS "Cats are great!"}; {key="length"; value=VI 15}] in
   let http_res = mk_http_response 200 headers body in
   let*? msg_id_out = send_https_response server hmeta_data http_res in
   return (Some msg_id_out)

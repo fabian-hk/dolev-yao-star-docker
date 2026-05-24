@@ -27,15 +27,23 @@ val get_state: principal -> sess_id -> traceful (option state_t)
 ```ocaml
 type url = {
    protocol:string;
-   domain = {root_domain:principal; sub_domain = ""};
+   domain = {root_domain:principal; sub_domain:string};
    port:int;
    path:string;
-   query = [{ key:string; value:kv_types } <: key_value kv_types];
-   fragment = {identifier = ""; data = []};
+   query:list (key_value ky_types);
+   fragment = {identifier:string; data:list (key_value ky_types)};
  }
 ```
 
-These are the possible values for the value in the query:
+**key_value type:**
+```ocaml
+type key_value = {
+  key:string;
+  value:kv_types;
+}
+```
+
+**ky_types type:**
 ```ocaml
 type kv_types: eqtype =
  | VS: s:string -> kv_types
