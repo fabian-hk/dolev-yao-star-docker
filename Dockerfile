@@ -1,6 +1,7 @@
-FROM lscr.io/linuxserver/code-server:4.121.0
+FROM lscr.io/linuxserver/code-server:4.127.0
 
-RUN apt-get update && apt-get install -y opam libgmp-dev pkg-config python3-pip python3-venv
+RUN apt-get update && apt-get install -y opam libgmp-dev pkg-config python3-pip python3-venv \
+	&& rm -rf /var/lib/apt/lists/*
 
 # Configure code-server extensions
 RUN /app/code-server/bin/code-server \
@@ -25,25 +26,29 @@ USER user
 ENV HOME=/home/user
 
 # Install F*
-RUN opam init -y
-RUN opam update
-RUN opam switch create fstar 4.14.2
-RUN eval $(opam env --switch=fstar) && opam pin add -y fstar "git+https://github.com/FStarLang/FStar.git#0cbbc9bd61f64977cc534977a858e9291eab69cc"
-RUN eval $(opam env --switch=fstar) && opam install -y curly
+# Everything happens in one layer so the opam caches and build/source
+# directories can be deleted at the end (saves ~4GB in the final image).
+RUN opam init -y \
+	&& opam switch create fstar 4.14.2 \
+	&& eval $(opam env --switch=fstar) \
+	&& opam pin add -y fstar "git+https://github.com/FStarLang/FStar.git#0cbbc9bd61f64977cc534977a858e9291eab69cc" \
+	&& opam install -y curly \
+	&& opam clean --all-switches --download-cache --logs --repo-cache \
+	&& rm -rf /home/user/.opam/fstar/.opam-switch/build \
+		/home/user/.opam/fstar/.opam-switch/sources
 
 WORKDIR /home/user
 RUN mkdir workspace
 
 # Install Z3
-RUN git clone https://github.com/Z3Prover/z3.git
-
-WORKDIR /home/user/z3
-RUN git checkout z3-4.15.3
-RUN python3 scripts/mk_make.py
-
-WORKDIR /home/user/z3/build
-RUN make -j 12
-RUN cp z3 /home/user/.opam/fstar/bin/z3-4.15.3
+# Build and clean up in one layer so only the binary ends up in the image.
+RUN git clone --depth 1 --branch z3-4.15.3 https://github.com/Z3Prover/z3.git \
+	&& cd z3 \
+	&& python3 scripts/mk_make.py \
+	&& make -C build -j"$(nproc)" \
+	&& cp build/z3 /home/user/.opam/fstar/bin/z3-4.15.3 \
+	&& cd /home/user \
+	&& rm -rf z3
 
 # Set environment variables for F* and DY Star
 RUN cat >> /home/user/.bashrc <<'EOF'
@@ -87,4 +92,4 @@ RUN make -j 12
 # Setup DY* Tools
 WORKDIR /home/user/dolev-yao-star-tools
 RUN python3 -m venv venv
-RUN . venv/bin/activate && pip install -r requirements.txt
+RUN . venv/bin/activate && pip install --no-cache-dir -r requirements.txt
