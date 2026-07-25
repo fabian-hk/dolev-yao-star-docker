@@ -28,6 +28,7 @@
     "${DY_HOME}/src/lib/label",
     "${DY_HOME}/cache",
 
-    "${DY_WEB}/src"
+    "${DY_WEB}/src",
+    "${DY_WEB}/cache"
   ]
 }

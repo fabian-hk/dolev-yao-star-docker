@@ -11,11 +11,11 @@ open DY.PotterAPI.Protocol
 let run () : traceful (option unit)  =
   let _ = IO.debug_print_string "************* Programm Output *************\n" in
   let client:principal = "Alice" in
-  let server:principal = "potterapi-fedeperin.vercel.app" in
+  let server:principal = "Bob" in
 
   let*? comm_keys_ids_client, comm_keys_ids_server = initialize_communication_reqres (http_t web_types kv_types) client server in
   
-  let*? sid, msg_id = api_request comm_keys_ids_client client server in
+  let*? sid, msg_id = api_request comm_keys_ids_client client in
   let*? () = api_response client sid msg_id in
 
   return (Some ())

@@ -12,6 +12,8 @@ open DY.Lib.Web
   https://potterapi-fedeperin.vercel.app/en/spells/random
 *)
 
+(*** Protocol State Definition ***)
+
 [@@with_bytes bytes]
 type state_t =
   | SendRequest: http_meta_data web_types kv_types -> state_t
@@ -27,8 +29,22 @@ instance local_state_state_t: local_state state_t = {
   format = parseable_serializeable_bytes_state_t;
 }
 
-val api_request: communication_keys_sess_ids -> principal -> principal -> traceful (option (state_id & timestamp))
-let api_request comm_keys_ids client server =
+
+(*** HTTP Library Initialization ***)
+
+instance http_config_cat_fact_api: http_config = {
+  domain_to_principal = (fun domain -> (
+    match domain with
+    | ["potterapi-fedeperin"; "vercel"; "app"] -> "Bob"
+    | _ -> "Unknown")
+  );
+}
+
+
+(*** API Functions ***)
+
+val api_request: communication_keys_sess_ids -> principal -> traceful (option (state_id & timestamp))
+let api_request comm_keys_ids client =
   let u:url_t kv_types = {
     protocol = HTTPS;
     domain = ["potterapi-fedeperin"; "vercel"; "app"];

@@ -12,6 +12,8 @@ open DY.Lib.Web
   https://catfact.ninja/fact?max_length=140
 *)
 
+(*** Protocol State Definition ***)
+
 [@@with_bytes bytes]
 type state_t =
   | SendRequest: http_meta_data web_types kv_types -> state_t
@@ -26,6 +28,20 @@ instance local_state_state_t: local_state state_t = {
   tag = "CatFactAPI.State";
   format = parseable_serializeable_bytes_state_t;
 }
+
+
+(*** HTTP Library Initialization ***)
+
+instance http_config_cat_fact_api: http_config = {
+  domain_to_principal = (fun domain -> (
+    match domain with
+    | ["catfact"; "ninja"] -> "Bob"
+    | _ -> "Unknown")
+  );
+}
+
+
+(*** API Functions ***)
 
 val api_request: communication_keys_sess_ids -> principal -> traceful (option (state_id & timestamp))
 let api_request comm_keys_ids client =

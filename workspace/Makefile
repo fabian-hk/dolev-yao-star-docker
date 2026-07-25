@@ -78,7 +78,7 @@ ALL_CHECKED_FILES := $(addprefix $(CACHE_DIR)/, $(addsuffix .checked, $(notdir $
 # Targets
 # ------------------------------------------------------------------------
 
-.PHONY: all verify clean debug .force-deps codegen test
+.PHONY: all verify clean debug .force-deps codegen test extract extract-debug
 
 # Dependency graph -> verification -> extraction
 all: codegen
@@ -191,6 +191,11 @@ $(EXTRACTION_STAGE_DIR)/$(EXTRACTIONL_EXE): $(OCAML_INPUTS) | $(EXTRACTION_STAGE
 
 extract: codegen $(EXTRACTION_STAGE_DIR)/$(EXTRACTIONL_EXE)
 	@$(EXTRACTION_STAGE_DIR)/$(EXTRACTIONL_EXE)
+
+# Same as 'extract', but with DEBUG=true so the HTTP layer logs every request
+# it sends to the terminal.
+extract-debug: codegen $(EXTRACTION_STAGE_DIR)/$(EXTRACTIONL_EXE)
+	@DEBUG=true $(EXTRACTION_STAGE_DIR)/$(EXTRACTIONL_EXE)
 
 # Debugging
 debug-make:

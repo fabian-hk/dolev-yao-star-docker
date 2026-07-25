@@ -9,8 +9,8 @@ open DY.Lib.Web
 (* 1. Define and setup state *)
 
 (* 2. Implement client send request and set state function *)
-val api_request: communication_keys_sess_ids -> principal -> principal -> traceful (option (state_id & timestamp))
-let api_request comm_keys_ids client server =
+val api_request: communication_keys_sess_ids -> principal -> traceful (option (state_id & timestamp))
+let api_request comm_keys_ids client =
 
   return (Some (({the_id=0} <: state_id), (0 <: timestamp))) // TODO replace with actual values, e.g. return (Some (sid, msg_id))
 

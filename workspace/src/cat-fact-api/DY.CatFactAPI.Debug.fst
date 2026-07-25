@@ -11,7 +11,7 @@ open DY.CatFactAPI.Protocol
 let debug () : traceful (option unit)  =
   let _ = IO.debug_print_string "************* Trace *************\n" in
   let client:principal = "Alice" in
-  let server:principal = "catfact.ninja" in
+  let server:principal = "Bob" in
 
   let*? comm_keys_ids_client, comm_keys_ids_server = initialize_communication_reqres (http_t web_types kv_types) client server in
   let*? sid, msg_id = api_request comm_keys_ids_client client in
