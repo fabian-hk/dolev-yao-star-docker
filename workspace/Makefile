@@ -22,7 +22,7 @@ FSTAR_EXE ?= fstar.exe
 Z3_EXE    ?= z3-4.15.3
 
 # Project configuration (relative)
-SOURCE_ROOTS := $(PROJECT_HOME)/src/cat-fact-api $(PROJECT_HOME)/src/hands-on-session $(PROJECT_HOME)/src/potter-api
+SOURCE_ROOTS := $(PROJECT_HOME)/src/cat-fact-api $(PROJECT_HOME)/src/hands-on-session $(PROJECT_HOME)/src/potter-api $(PROJECT_HOME)/src/login
 CACHE_DIR  := $(PROJECT_HOME)/cache
 HINT_DIR   := $(PROJECT_HOME)/hints
 OBJ_DIR    := $(PROJECT_HOME)/obj

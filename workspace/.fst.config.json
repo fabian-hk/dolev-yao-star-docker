@@ -12,6 +12,7 @@
     "src/cat-fact-api",
     "src/hands-on-session",
     "src/potter-api",
+    "src/login",
 
     "${COMPARSE_HOME}/src",
     "${COMPARSE_HOME}/cache",
