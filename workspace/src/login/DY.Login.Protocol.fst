@@ -29,11 +29,13 @@ instance local_state_state_t: local_state state_t = {
   format = parseable_serializeable_bytes_state_t;
 }
 
+
 (*** Event Definition ***)
 
 [@@with_bytes bytes]
 type event_t =
-  | ServerAuthenticatedUser: client:principal -> server:principal -> request:http_request_t web_types kv_types -> key:bytes -> event_t
+  | ClientAuthenticatesToServer: client:principal -> server:principal -> event_t
+  | ServerAuthenticatedClient: client:principal -> server:principal -> event_t
 
 %splice [ps_event_t] (gen_parser (`event_t))
 %splice [ps_event_t_is_well_formed] (gen_is_well_formed_lemma (`event_t))
@@ -84,10 +86,13 @@ let api_request comm_keys_ids client sid =
   guard_tr (InitialState? st);*?
   let InitialState state_client server password = st in
   guard_tr (client = state_client);*?
-  guard_tr (server = domain_to_principal ["dummyjson"; "com"]);*?
-  let (url, http_req) = build_login_request client password in
-  let*? (msg_id, hmeta_data) = send_https_request comm_keys_ids client url http_req in
+  
+  trigger_event client (ClientAuthenticatesToServer client server);*
 
+  let (url, http_req) = build_login_request client password in
+  guard_tr (server = domain_to_principal url.domain);*?
+  let*? (msg_id, hmeta_data) = send_https_request comm_keys_ids client url http_req in
+  
   let* sid = new_session_id client in
   set_state client sid (SendRequest hmeta_data);*
   return (Some (sid, msg_id))
@@ -119,9 +124,10 @@ let api_server comm_keys_ids server sid msg_id =
   guard_tr (server = state_server);*?
 
   let*? (http_req, hmeta_data) = receive_https_request comm_keys_ids server msg_id in
+  guard_tr (get_user_agent_header http_req.headers = Some Server);*?
   guard_tr (login_request_credentials_match client password http_req);*?
 
-  trigger_event server (ServerAuthenticatedUser client server http_req hmeta_data.key);*
+  trigger_event server (ServerAuthenticatedClient client server);*
 
   let*? msg_id_out = send_https_response server hmeta_data (build_login_response ()) in
   return (Some msg_id_out)

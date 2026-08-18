@@ -14,7 +14,7 @@ open DY.Login.Invariants
 
 #set-options "--fuel 0 --ifuel 0 --z3cliopt 'smt.qi.eager_threshold=100'"
 
-(*** Request facts ***)
+(*** API Request ***)
 
 #push-options "--fuel 4 --z3rlimit 40"
 val build_login_request_proof:
@@ -22,7 +22,8 @@ val build_login_request_proof:
   Lemma
   (requires (
     let server = domain_to_principal ["dummyjson"; "com"] in
-    is_secret (comm_label client server) tr password
+    is_secret (comm_label client server) tr password /\
+    event_triggered tr client (ClientAuthenticatesToServer client server)
   ))
   (ensures (
     let (url, http_req) = build_login_request client password in
@@ -94,7 +95,55 @@ let build_login_request_proof tr client password =
   ()
 #pop-options
 
-(*** Response facts ***)
+#push-options "--ifuel 1 --z3rlimit 20"
+val api_request_proof:
+  tr:trace -> comm_keys_ids:communication_keys_sess_ids ->
+  client:principal -> sid:state_id ->
+  Lemma
+  (requires
+    trace_invariant tr
+  )
+  (ensures (
+    let (_, tr_out) = api_request comm_keys_ids client sid tr in
+    trace_invariant tr_out
+  ))
+let api_request_proof tr comm_keys_ids client sid =
+  reveal_opaque (`%api_request) (api_request comm_keys_ids client sid);
+  let (_, tr_out) = api_request comm_keys_ids client sid tr in
+
+  let (opt_state, tr_get) = get_state #state_t client sid tr in
+  assert(trace_invariant tr_get);
+  match opt_state with
+  | None -> ()
+  | Some (SendRequest _) -> ()
+  | Some (InitialState state_client server password) ->
+    let (opt_client, tr_gd1) = guard_tr (client = state_client) tr_get in
+    match opt_client with
+    | None -> ()
+    | Some _ ->
+      let ((), tr_event) = trigger_event client (ClientAuthenticatesToServer client server) tr_gd1 in
+      assert(trace_invariant tr_event);
+      let (url, http_req) = build_login_request client password in
+      let (opt_server, tr_gd2) = guard_tr (server = http_config_login.domain_to_principal url.domain) tr_event in
+      match opt_server with
+      | None -> ()
+      | Some _ ->
+        assert(tr_event == tr_gd2);
+        let server = http_config_login.domain_to_principal url.domain in
+        build_login_request_proof tr_gd2 client password;
+        send_https_request_proof tr_gd2 comm_keys_ids client url http_req;
+        match send_https_request comm_keys_ids client url http_req tr_gd2 with
+        | (None, tr_sent) -> ()
+        | (Some (_, hmeta_data), tr_sent) ->
+          derive_comm_meta_data_knowable_client tr_sent hmeta_data client;
+          let (new_sid, tr_sid) = new_session_id client tr_sent in
+          let ((), tr_st) = set_state client sid (SendRequest hmeta_data) tr_sid in
+          set_state_invariant state_predicate_login state_update_predicate_login client new_sid (SendRequest hmeta_data) tr_sid;
+          assert (trace_invariant tr_out)
+#pop-options
+
+
+(*** API Server ***)
 
 #push-options "--fuel 6 --z3rlimit 40"
 val build_login_response_proof:
@@ -159,104 +208,47 @@ let build_login_response_proof tr hmeta_data =
     tr hmeta_data 200 headers body
 #pop-options
 
-(*** Trace-invariant preservation proofs ***)
-
-#push-options "--ifuel 1 --z3rlimit 40"
-val api_request_proof:
-  tr:trace -> comm_keys_ids:communication_keys_sess_ids ->
-  client:principal -> sid:state_id ->
-  Lemma
-  (requires
-    trace_invariant tr /\
-    has_communication_layer_reqres_predicates (http_t web_types kv_types)
-  )
-  (ensures (
-    let (_, tr_out) = api_request comm_keys_ids client sid tr in
-    trace_invariant tr_out
-  ))
-let api_request_proof tr comm_keys_ids client sid =
-  reveal_opaque (`%api_request) (api_request comm_keys_ids client sid);
-  let (_, tr_out) = api_request comm_keys_ids client sid tr in
-  let (opt_state, _) = get_state #state_t client sid tr in
-  match opt_state with
-  | None -> ()
-  | Some (SendRequest _) -> ()
-  | Some (InitialState state_client server password) ->
-    let (opt_client, _) = guard_tr (client = state_client) tr in
-    match opt_client with
-    | None -> ()
-    | Some _ ->
-      let (opt_server, _) = guard_tr
-        (server = domain_to_principal ["dummyjson"; "com"]) tr in
-      match opt_server with
-      | None -> ()
-      | Some _ ->
-        let (url, http_req) = build_login_request client password in
-        build_login_request_proof tr client password;
-        send_https_request_proof tr comm_keys_ids client url http_req;
-        match send_https_request comm_keys_ids client url http_req tr with
-        | (Some (_, hmeta_data), tr_sent) ->
-          derive_comm_meta_data_knowable_client tr_sent hmeta_data client;
-          let (new_sid, tr_sid) = new_session_id client tr_sent in
-          set_state_invariant
-            state_predicate_login state_update_predicate_login
-            client new_sid (SendRequest hmeta_data) tr_sid;
-          assert (trace_invariant tr_out)
-        | _ -> ()
-#pop-options
-
-val authenticated_login_request_condition:
-  trace -> communication_keys_sess_ids -> principal -> state_id ->
-  timestamp -> prop
-let authenticated_login_request_condition
-    tr comm_keys_ids server sid msg_id =
-  match get_state #state_t server sid tr with
-  | (Some (InitialState client _ _), _) ->
-    (match receive_https_request comm_keys_ids server msg_id tr with
-    | (Some (http_req, hmeta_data), tr_received) ->
-      event_triggered tr_received client (CommClientSendRequest Unauthenticated client server (Request http_req) hmeta_data.key <: communication_reqres_event (http_t web_types kv_types))
-    | _ -> True)
-  | _ -> True
-
-#push-options "--z3rlimit 40"
-val authenticated_login_response_proof:
+#push-options "--z3rlimit 20"
+val helper_lemma_event_invariant:
   tr:trace -> client:principal -> server:principal ->
   http_req:http_request_t web_types kv_types ->
   hmeta_data:http_meta_data web_types kv_types ->
+  password:bytes ->
   Lemma
   (requires
     trace_invariant tr /\
-    has_communication_layer_reqres_predicates (http_t web_types kv_types) /\
     hmeta_data.server == server /\
-    event_triggered tr server
-      (CommServerReceiveRequest
-        hmeta_data.client server hmeta_data.request hmeta_data.key
-        <: communication_reqres_event (http_t web_types kv_types)) /\
-    event_triggered tr client (CommClientSendRequest Unauthenticated client server (Request http_req) hmeta_data.key <: communication_reqres_event (http_t web_types kv_types))
+    hmeta_data.client == None /\
+    hmeta_data.request == Request http_req /\
+    event_triggered tr server (CommServerReceiveRequest hmeta_data.client server hmeta_data.request hmeta_data.key <: communication_reqres_event (http_t web_types kv_types)) /\
+    get_bytes_from_json_encoded "password" http_req.body == Some password /\
+    get_principal_from_json_encoded "username" http_req.body == Some client /\
+    is_secret (comm_label client server) tr password /\
+    is_server_request http_req
   )
   (ensures (
-    let login_event = ServerAuthenticatedUser client server http_req hmeta_data.key in
-    let ((), tr_event) = trigger_event server login_event tr in
-    match send_https_response server hmeta_data (build_login_response ()) tr_event with
-    | (None, tr_out) -> trace_invariant tr_out
-    | (Some msg_id_out, tr_sent) ->
-      let (_, tr_out) = return (Some msg_id_out) tr_sent in
-      trace_invariant tr_out
+    event_predicate_login tr server (ServerAuthenticatedClient client server)
   ))
-let authenticated_login_response_proof
-    tr client server http_req hmeta_data =
-  let login_event =
-    ServerAuthenticatedUser client server http_req hmeta_data.key in
-  assert (event_predicate_login tr server login_event);
-  trigger_event_trace_invariant event_predicate_login server login_event tr;
-  let ((), tr_event) = trigger_event server login_event tr in
-  event_triggered_grows
-    tr tr_event server
-    (CommServerReceiveRequest
-      hmeta_data.client server hmeta_data.request hmeta_data.key
-      <: communication_reqres_event (http_t web_types kv_types));
-  build_login_response_proof tr_event hmeta_data;
-  send_https_response_proof tr_event server hmeta_data (build_login_response ())
+let helper_lemma_event_invariant tr client server http_req hmeta_data password =
+  eliminate (exists client. event_triggered tr client (CommClientSendRequest Unauthenticated client server hmeta_data.request hmeta_data.key <: communication_reqres_event (http_t web_types kv_types))) \/
+    (is_publishable tr hmeta_data.key /\ is_well_formed (http_t web_types kv_types) (is_publishable tr) hmeta_data.request)
+  returns event_triggered tr client (ClientAuthenticatesToServer client server) \/
+    is_corrupt tr (principal_label client) \/ is_corrupt tr (principal_label server)
+  with _. (
+    eliminate exists client. event_triggered tr client (CommClientSendRequest Unauthenticated client server hmeta_data.request hmeta_data.key <: communication_reqres_event (http_t web_types kv_types))
+    returns event_triggered tr client (ClientAuthenticatesToServer client server) \/
+      is_corrupt tr (principal_label client) \/ is_corrupt tr (principal_label server)
+    with _. (
+      web_types_request_predicate tr "username" wt_send_request_pred_key_username hmeta_data client;
+      ()
+    )
+  )
+  and _. (
+    assert(is_well_formed web_types (is_publishable tr) http_req.body);
+    get_bytes_from_json_encoded_knowable tr public "password" http_req.body;
+    assert(is_publishable tr password);
+    ()
+  )
 #pop-options
 
 #push-options "--ifuel 1 --z3rlimit 40"
@@ -265,58 +257,58 @@ val api_server_proof:
   server:principal -> sid:state_id -> msg_id:timestamp ->
   Lemma
   (requires
-    trace_invariant tr /\
-    has_communication_layer_reqres_predicates (http_t web_types kv_types) /\
-    // TODO remove this precondition as it should be proven from receiving the message and state invariant
-    authenticated_login_request_condition
-      tr comm_keys_ids server sid msg_id
+    trace_invariant tr
   )
   (ensures (
     let (_, tr_out) = api_server comm_keys_ids server sid msg_id tr in
     trace_invariant tr_out
   ))
 let api_server_proof tr comm_keys_ids server sid msg_id =
-  assert_norm (
-    protocol_invariants_login.crypto_invs.usages == default_crypto_usages
-  );
   reveal_opaque (`%api_server) (api_server comm_keys_ids server sid msg_id);
   let (_, tr_out) = api_server comm_keys_ids server sid msg_id tr in
-  let (opt_state, _) = get_state #state_t server sid tr in
+  let (opt_state, tr_get) = get_state #state_t server sid tr in
   match opt_state with
   | None -> ()
   | Some (SendRequest _) -> ()
   | Some (InitialState client state_server password) ->
-    let (opt_server, _) = guard_tr (server = state_server) tr in
+    let (opt_server, tr_gd1) = guard_tr (server = state_server) tr_get in
     match opt_server with
     | None -> ()
     | Some _ ->
-      receive_https_request_proof
-        #protocol_invariants_login #web_types #kv_types
-        tr comm_keys_ids server msg_id;
-      let (opt_request, tr_received) =
-        receive_https_request comm_keys_ids server msg_id tr in
+      receive_https_request_proof #protocol_invariants_login #web_types #kv_types tr_gd1 comm_keys_ids server msg_id;
+      let (opt_request, tr_received) = receive_https_request comm_keys_ids server msg_id tr_gd1 in
       match opt_request with
+      | None -> ()
       | Some (http_req, hmeta_data) ->
-        let (credentials_match, tr_credentials) =
-          guard_tr
-            (login_request_credentials_match client password http_req)
-            tr_received in
-        (match credentials_match with
+        let (opt_user_agent, tr_gd2) = guard_tr (get_user_agent_header http_req.headers = Some Server) tr_received in
+        match opt_user_agent with
         | None -> ()
         | Some _ ->
-          authenticated_login_response_proof
-            tr_credentials client server http_req hmeta_data;
-          assert (trace_invariant tr_out))
-      | _ -> ()
+          let (credentials_match, tr_gd3) = guard_tr (login_request_credentials_match client password http_req) tr_gd2 in
+          match credentials_match with
+          | None -> ()
+          | Some _ ->
+            let ((), tr_event) = trigger_event server (ServerAuthenticatedClient client server) tr_gd3 in
+            helper_lemma_event_invariant tr_gd3 client server http_req hmeta_data password;
+            assert(trace_invariant tr_event);
+            
+            let (_, tr_snd) = send_https_response server hmeta_data (build_login_response ()) tr_event in
+            build_login_response_proof tr_event hmeta_data;
+            send_https_response_proof tr_event server hmeta_data (build_login_response ());
+            assert(trace_invariant tr_snd);
+            assert (tr_snd == tr_out);
+            ()
 #pop-options
+
+
+(*** API Response ***)
 
 #push-options "--ifuel 1 --z3rlimit 20"
 val api_response_proof:
   tr:trace -> client:principal -> sid:state_id -> msg_id:timestamp ->
   Lemma
   (requires
-    trace_invariant tr /\
-    has_communication_layer_reqres_predicates (http_t web_types kv_types)
+    trace_invariant tr
   )
   (ensures (
     let (_, tr_out) = api_response client sid msg_id tr in
@@ -325,6 +317,7 @@ val api_response_proof:
 let api_response_proof tr client sid msg_id =
   reveal_opaque (`%api_response) (api_response client sid msg_id);
   let (_, tr_out) = api_response client sid msg_id tr in
+
   match get_state #state_t client sid tr with
   | (Some (SendRequest hmeta_data), _) ->
     receive_https_response_proof tr hmeta_data client msg_id;

@@ -10,7 +10,7 @@ open DY.Login.Protocol
 
 let run () : traceful (option unit)  =
   let _ = IO.debug_print_string "************* Programm Output *************\n" in
-  let client:principal = "Alice" in
+  let client:principal = "emilys" in
   let server:principal = "Bob" in
 
   let real_password = serialize usage_rand_string {rand = "emilyspass"} in
