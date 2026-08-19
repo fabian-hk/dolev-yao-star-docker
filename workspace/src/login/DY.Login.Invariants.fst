@@ -61,6 +61,7 @@ let _ = (
 
 (*** HTTP predicates ***)
 
+// Request predicates
 val wt_send_request_pred_key_username: wt_send_request_pred_key "username"
 let wt_send_request_pred_key_username = {
   pred = (fun tr client server key_label http_req -> (
@@ -82,23 +83,38 @@ let wt_send_request_pred_key_password = {
 }
 #pop-options
 
-val wt_send_request_pred_key_true: key:string -> wt_send_response_pred_key key
-let wt_send_request_pred_key_true key = {
-  pred = (fun tr server key_label http_req http_res -> True);
-  pred_later = (fun tr1 tr2 server key_label http_req http_res -> ());
-}
-
 let request_predicates_login: list (dtuple2 string wt_send_request_pred_key) = [
   (|"username", wt_send_request_pred_key_username|);
   (|"password", wt_send_request_pred_key_password|);
 ]
 
+// Response predicates
+#push-options "--ifuel 1"
+val wt_send_response_pred_key_username: wt_send_response_pred_key "username"
+let wt_send_response_pred_key_username = {
+  pred = (fun tr server key_label http_req http_res -> (
+    match get_string_from_json_encoded "username" http_res.body, get_set_cookie_header "accessToken" http_res.headers with
+    | Some username, Some cookie -> (
+      event_triggered tr server (ServerAuthenticatedClient username server cookie <: event_t)
+    )
+    | _ -> False
+  ));
+  pred_later = (fun tr1 tr2 server key_label http_req http_res -> ());
+}
+#pop-options
+
+val wt_send_response_pred_key_true: key:string -> wt_send_response_pred_key key
+let wt_send_response_pred_key_true key = {
+  pred = (fun tr server key_label http_req http_res -> True);
+  pred_later = (fun tr1 tr2 server key_label http_req http_res -> ());
+}
+
 let response_predicates_login: list (dtuple2 string wt_send_response_pred_key) = [
-  (|"id", wt_send_request_pred_key_true "id"|);
-  (|"username", wt_send_request_pred_key_true "username"|);
-  (|"email", wt_send_request_pred_key_true "email"|);
-  (|"firstName", wt_send_request_pred_key_true "firstName"|);
-  (|"lastName", wt_send_request_pred_key_true "lastName"|);
+  (|"id", wt_send_response_pred_key_true "id"|);
+  (|"username", wt_send_response_pred_key_username|);
+  (|"email", wt_send_response_pred_key_true "email"|);
+  (|"firstName", wt_send_response_pred_key_true "firstName"|);
+  (|"lastName", wt_send_response_pred_key_true "lastName"|);
 ]
 
 instance web_types_predicates_login: web_types_preds = {
@@ -135,9 +151,15 @@ let event_predicate_login: event_predicate event_t =
   fun tr prin e ->
     match e with
     | ClientAuthenticatesToServer client server -> True
-    | ServerAuthenticatedClient client server ->
+    | ServerAuthenticatedClient client server cookie ->
       prin == server /\
-      (event_triggered tr client (ClientAuthenticatesToServer client server) \/
+      ((event_triggered tr client (ClientAuthenticatesToServer client server) /\
+        is_secret (comm_label client server) tr cookie.value) \/
+       is_corrupt tr (principal_label client) \/ is_corrupt tr (principal_label server))
+    | ClientReceivedCookie client server cookie ->
+      prin == client /\
+      ((event_triggered tr server (ServerAuthenticatedClient client server cookie) /\
+        is_secret (comm_label client server) tr cookie.value) \/
        is_corrupt tr (principal_label client) \/ is_corrupt tr (principal_label server))
 #pop-options
 
@@ -148,11 +170,11 @@ let state_predicate_login: local_state_predicate state_t = {
   pred = (fun tr prin sess_id st ->
     match st with
     | InitialState client server password ->
-      // TODO remove one principal
       (prin == client \/ prin == server) /\
       is_secret (comm_label client server) tr password
     | SendRequest hmeta_data ->
-      comm_meta_data_knowable tr (http_t web_types kv_types) prin hmeta_data
+      comm_meta_data_knowable tr (http_t web_types kv_types) prin hmeta_data /\
+      is_server_request (Request?.http_req hmeta_data.request)
   );
   pred_later = (fun tr1 tr2 prin sess_id st -> ());
   pred_knowable = (fun tr prin sess_id st ->
