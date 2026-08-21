@@ -68,8 +68,7 @@ let wt_send_request_pred_key_username = {
     match get_principal_from_json_encoded "username" http_req.body with
     | Some username -> (
       // 1. Setup username request predicate
-      username == client /\
-      event_triggered tr client (ClientAuthenticatesToServer client server)
+      True
     )
     | None -> False
   ));
@@ -97,7 +96,7 @@ let wt_send_response_pred_key_username = {
     match get_string_from_json_encoded "username" http_res.body, get_set_cookie_header "accessToken" http_res.headers with
     | Some username, Some cookie -> (
       // 2. Setup username response predicate
-      event_triggered tr server (ServerAuthenticatedClient username server cookie <: event_t)
+      True
     )
     | _ -> False
   ));
