@@ -1,4 +1,4 @@
-FROM lscr.io/linuxserver/code-server:4.127.0
+FROM lscr.io/linuxserver/code-server:4.133.0
 
 RUN apt-get update && apt-get install -y opam libgmp-dev pkg-config python3-pip python3-venv \
 	&& rm -rf /var/lib/apt/lists/*

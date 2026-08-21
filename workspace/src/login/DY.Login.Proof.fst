@@ -18,17 +18,17 @@ open DY.Login.Invariants
 
 #push-options "--fuel 4 --z3rlimit 40"
 val build_login_request_proof:
-  tr:trace -> client:principal -> password:bytes ->
+  tr:trace -> client:principal -> domain:domain_t -> password:bytes ->
   Lemma
   (requires (
-    let server = domain_to_principal ["dummyjson"; "com"] in
+    let server = domain_to_principal domain in
     is_secret (comm_label client server) tr password /\
     event_triggered tr client (ClientAuthenticatesToServer client server)
   ))
   (ensures (
-    let (url, http_req) = build_login_request client password in
+    let (url, http_req) = build_login_request client domain password in
     let server = domain_to_principal url.domain in
-    domain_to_principal ["dummyjson"; "com"] == server /\
+    domain_to_principal domain == server /\
     get_user_agent_header http_req.headers == Some Server /\
     http_query_predicates_login.http_query_pred
       tr client server http_req (comm_label client server) /\
@@ -39,13 +39,14 @@ val build_login_request_proof:
     is_well_formed
       (http_request_t web_types kv_types)
       (is_knowable_by (comm_label client server) tr)
-      http_req
+      http_req /\
+    is_server_request http_req
   ))
-let build_login_request_proof tr client password =
+let build_login_request_proof tr client domain password =
   reveal_opaque (`%build_login_request) build_login_request;
   let url:url_t kv_types = {
     protocol = HTTPS;
-    domain = ["dummyjson"; "com"];
+    domain = domain;
     port = 443;
     path = "/auth/login";
     query = [];
@@ -66,6 +67,9 @@ let build_login_request_proof tr client password =
   mk_http_request_body_eq POST url headers body;
   mk_http_request_query_eq POST url headers body;
   mk_http_request_headers_extractable tr POST url headers body;
+
+  assert(is_server_request http_req);
+
   assert (
     wt_send_request_pred_key_username.pred
       tr client server lab http_req
@@ -95,6 +99,19 @@ let build_login_request_proof tr client password =
   ()
 #pop-options
 
+val helper_lemma_state_invariant_send_request:
+  tr:trace -> client:principal -> sid:state_id -> hmeta_data:http_meta_data web_types kv_types ->
+  Lemma
+  (requires (
+    trace_invariant tr /\ 
+    event_triggered tr client (CommClientSendRequest Unauthenticated client hmeta_data.server hmeta_data.request hmeta_data.key <: communication_reqres_event (http_t web_types kv_types)) /\
+    is_server_request (Request?.http_req hmeta_data.request)
+  ))
+  (ensures (
+    state_predicate_login.pred tr client sid (SendRequest hmeta_data)
+  ))
+let helper_lemma_state_invariant_send_request tr client sid hmeta_data = ()
+
 #push-options "--ifuel 1 --z3rlimit 20"
 val api_request_proof:
   tr:trace -> comm_keys_ids:communication_keys_sess_ids ->
@@ -116,30 +133,25 @@ let api_request_proof tr comm_keys_ids client sid =
   match opt_state with
   | None -> ()
   | Some (SendRequest _) -> ()
-  | Some (InitialState state_client server password) ->
-    let (opt_client, tr_gd1) = guard_tr (client = state_client) tr_get in
-    match opt_client with
-    | None -> ()
-    | Some _ ->
-      let ((), tr_event) = trigger_event client (ClientAuthenticatesToServer client server) tr_gd1 in
-      assert(trace_invariant tr_event);
-      let (url, http_req) = build_login_request client password in
-      let (opt_gd1, tr_gd2) = guard_tr (server = http_config_login.domain_to_principal url.domain) tr_event in
-      match opt_gd1 with
-      | None -> ()
-      | Some _ ->
-        assert(tr_event == tr_gd2);
-        let server = http_config_login.domain_to_principal url.domain in
-        build_login_request_proof tr_gd2 client password;
-        send_https_request_proof tr_gd2 comm_keys_ids client url http_req;
-        match send_https_request comm_keys_ids client url http_req tr_gd2 with
-        | (None, tr_sent) -> ()
-        | (Some (_, hmeta_data), tr_sent) ->
-          derive_comm_meta_data_knowable_client tr_sent hmeta_data client;
-          let (new_sid, tr_sid) = new_session_id client tr_sent in
-          let ((), tr_st) = set_state client sid (SendRequest hmeta_data) tr_sid in
-          set_state_invariant state_predicate_login state_update_predicate_login client new_sid (SendRequest hmeta_data) tr_sid;
-          assert (trace_invariant tr_out)
+  | Some (InitialStateServer client password) -> ()
+  | Some (InitialStateClient domain password) ->
+    let server = http_config_login.domain_to_principal domain in
+    let ((), tr_event) = trigger_event client (ClientAuthenticatesToServer client server) tr_get in
+    assert(trace_invariant tr_event);
+    let (url, http_req) = build_login_request client domain password in
+      let server = http_config_login.domain_to_principal url.domain in
+      assert(event_triggered tr_event client (ClientAuthenticatesToServer client server));
+      build_login_request_proof tr_event client domain password;
+      send_https_request_proof tr_event comm_keys_ids client url http_req;
+      match send_https_request comm_keys_ids client url http_req tr_event with
+      | (None, tr_sent) -> ()
+      | (Some (_, hmeta_data), tr_sent) ->
+        derive_comm_meta_data_knowable_client tr_sent hmeta_data client;
+        let (new_sid, tr_sid) = new_session_id client tr_sent in
+        let ((), tr_st) = set_state client sid (SendRequest hmeta_data) tr_sid in
+        helper_lemma_state_invariant_send_request tr_sid client new_sid hmeta_data;
+        set_state_invariant state_predicate_login state_update_predicate_login client new_sid (SendRequest hmeta_data) tr_sid;
+        assert (trace_invariant tr_out)
 #pop-options
 
 
@@ -288,7 +300,7 @@ let helper_lemma_event_invariant_server_authenticated_client tr client server ht
   )
 #pop-options
 
-#push-options "--ifuel 1 --z3rlimit 100"
+#push-options "--ifuel 1 --z3rlimit 150"
 val api_server_proof:
   tr:trace -> comm_keys_ids:communication_keys_sess_ids ->
   server:principal -> sid:state_id -> msg_id:timestamp ->
@@ -309,53 +321,49 @@ let api_server_proof tr comm_keys_ids server sid msg_id =
   match opt_state with
   | None -> ()
   | Some (SendRequest _) -> ()
-  | Some (InitialState client state_server password) ->
-    let (opt_gd1, tr_gd1) = guard_tr (server = state_server) tr_get in
-    assert(trace_invariant tr_gd1);
-    match opt_gd1 with
+  | Some (InitialStateClient domain password) -> ()
+  | Some (InitialStateServer client password) ->
+    receive_https_request_proof #protocol_invariants_login #web_types #kv_types tr_get comm_keys_ids server msg_id;
+    let (opt_request, tr_received) = receive_https_request comm_keys_ids server msg_id tr_get in
+    assert(trace_invariant tr_received);
+    match opt_request with
     | None -> ()
-    | Some _ ->
-      receive_https_request_proof #protocol_invariants_login #web_types #kv_types tr_gd1 comm_keys_ids server msg_id;
-      let (opt_request, tr_received) = receive_https_request comm_keys_ids server msg_id tr_gd1 in
-      assert(trace_invariant tr_received);
-      match opt_request with
+    | Some (http_req, hmeta_data) ->
+      let (opt_user_agent, tr_gd2) = guard_tr (get_user_agent_header http_req.headers = Some Server) tr_received in
+      assert(trace_invariant tr_gd2);
+      match opt_user_agent with
       | None -> ()
-      | Some (http_req, hmeta_data) ->
-        let (opt_user_agent, tr_gd2) = guard_tr (get_user_agent_header http_req.headers = Some Server) tr_received in
-        assert(trace_invariant tr_gd2);
-        match opt_user_agent with
+      | Some _ ->
+        let (credentials_match, tr_gd3) = guard_tr (login_request_credentials_match client password http_req) tr_gd2 in
+        assert(trace_invariant tr_gd3);
+        match credentials_match with
         | None -> ()
         | Some _ ->
-          let (credentials_match, tr_gd3) = guard_tr (login_request_credentials_match client password http_req) tr_gd2 in
-          assert(trace_invariant tr_gd3);
-          match credentials_match with
+          let (opt_cookie, tr_nonce) = mk_comm_layer_response_nonce hmeta_data NoUsage tr_gd3 in
+          mk_comm_layer_response_nonce_proof tr_gd3 hmeta_data NoUsage;
+          assert(trace_invariant tr_nonce);
+          match opt_cookie with
           | None -> ()
-          | Some _ ->
-            let real_cookie = serialize usage_rand_string {rand = "secret"} in
-            let (opt_cookie, tr_nonce) = mk_comm_layer_response_nonce hmeta_data (AeadKey "" real_cookie) tr_gd3 in
-            assert(trace_invariant tr_nonce);
-            match opt_cookie with
-            | None -> ()
-            | Some cookie_value ->
-              let cookie = {
-                  name = "accessToken";
-                  value = cookie_value;
-                  http_only = true;
-                  secure = true;
-                } in
-              let ((), tr_event) = trigger_event server (ServerAuthenticatedClient client server cookie) tr_nonce in
-              helper_lemma_event_invariant_server_authenticated_client tr_nonce client server http_req hmeta_data password cookie;
-              assert(trace_invariant tr_event);
-              
-              let http_resp = build_login_response client cookie in
-              let (_, tr_snd) = send_https_response server hmeta_data http_resp tr_event in
-              
-              assert_norm(Some? (get_set_cookie_header "accessToken" [SetCookie cookie <: header_t kv_types]));
-              build_login_response_proof tr_event hmeta_data client cookie;
-              send_https_response_proof tr_event server hmeta_data http_resp;
-              assert(trace_invariant tr_snd);
-              assert (tr_snd == tr_out);
-              ()
+          | Some cookie_value ->
+            let cookie = {
+                name = "accessToken";
+                value = cookie_value;
+                http_only = true;
+                secure = true;
+              } in
+            let ((), tr_event) = trigger_event server (ServerAuthenticatedClient client server cookie) tr_nonce in
+            helper_lemma_event_invariant_server_authenticated_client tr_nonce client server http_req hmeta_data password cookie;
+            assert(trace_invariant tr_event);
+            
+            let http_resp = build_login_response client cookie in
+            let (_, tr_snd) = send_https_response server hmeta_data http_resp tr_event in
+            
+            assert_norm(Some? (get_set_cookie_header "accessToken" [SetCookie cookie <: header_t kv_types]));
+            build_login_response_proof tr_event hmeta_data client cookie;
+            send_https_response_proof tr_event server hmeta_data http_resp;
+            assert(trace_invariant tr_snd);
+            assert (tr_snd == tr_out);
+            ()
 #pop-options
 
 
@@ -429,7 +437,8 @@ let api_response_proof tr client sid msg_id =
   assert(trace_invariant tr_get);
   match opt_state with
   | None -> ()
-  | Some (InitialState _ _ _) -> ()
+  | Some (InitialStateClient _ _) -> ()
+  | Some (InitialStateServer _ _) -> ()
   | Some (SendRequest hmeta_data) ->
     let (opt_response, tr_received) = receive_https_response hmeta_data client msg_id tr_get in
     receive_https_response_proof tr hmeta_data client msg_id;

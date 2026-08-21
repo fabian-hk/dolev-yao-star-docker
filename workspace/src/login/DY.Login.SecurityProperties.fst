@@ -41,19 +41,21 @@ val server_authentication:
 let server_authentication tr client server cookie = ()
 
 val password_secrecy:
-  tr:trace -> client:principal -> server:principal -> password:bytes ->
+  tr:trace -> client:principal -> domain:domain_t -> password:bytes ->
   Lemma
-  (requires
+  (requires (
+    let server = http_config_login.domain_to_principal domain in
     trace_invariant tr /\
     attacker_knows tr password /\ (
-      (exists sess_id. state_was_set tr client sess_id (InitialState client server password)) \/
-      (exists sess_id. state_was_set tr server sess_id (InitialState client server password))
+      (exists sess_id. state_was_set tr client sess_id (InitialStateClient domain password)) \/
+      (exists sess_id. state_was_set tr server sess_id (InitialStateServer client password))
     )
-  )
-  (ensures
+  ))
+  (ensures (
+    let server = http_config_login.domain_to_principal domain in
     is_corrupt tr (principal_label client) \/ is_corrupt tr (principal_label server)
-  )
-let password_secrecy tr client server password =
+  ))
+let password_secrecy tr client domain password =
   attacker_only_knows_publishable_values tr password
 
 val cookie_secrecy:

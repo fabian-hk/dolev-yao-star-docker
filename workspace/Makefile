@@ -15,7 +15,7 @@
 PROJECT_HOME   ?= .
 DY_HOME        ?= $(abspath $(PROJECT_HOME)/../dolev-yao-star-extrinsic)
 COMPARSE_HOME  ?= $(abspath $(PROJECT_HOME)/../comparse)
-DY_WEB  ?= $(abspath $(DY_WEB)/../dolev-yao-star-preliminary-web)
+DY_WEB  ?= $(abspath $(PROJECT_HOME)/../dolev-yao-star-preliminary-web)
 
 # Executables
 FSTAR_EXE ?= fstar.exe

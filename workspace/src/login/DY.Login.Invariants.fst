@@ -165,12 +165,16 @@ let event_predicate_login: event_predicate event_t =
 
 (*** Protocol state invariant ***)
 
-#push-options "--ifuel 1 --z3rlimit 50"
+#push-options "--ifuel 1 --z3rlimit 80"
 let state_predicate_login: local_state_predicate state_t = {
   pred = (fun tr prin sess_id st ->
     match st with
-    | InitialState client server password ->
-      (prin == client \/ prin == server) /\
+    | InitialStateClient domain password ->
+      let client = prin in
+      let server = http_config_login.domain_to_principal domain in
+      is_secret (comm_label client server) tr password
+    | InitialStateServer client password ->
+      let server = prin in
       is_secret (comm_label client server) tr password
     | SendRequest hmeta_data ->
       comm_meta_data_knowable tr (http_t web_types kv_types) prin hmeta_data /\
@@ -178,8 +182,14 @@ let state_predicate_login: local_state_predicate state_t = {
   );
   pred_later = (fun tr1 tr2 prin sess_id st -> ());
   pred_knowable = (fun tr prin sess_id st ->
+    let lab = principal_typed_state_content_label prin local_state_state_t.tag sess_id st in
     match st with
-    | InitialState client server password -> ()
+    | InitialStateClient domain password ->
+      assert(is_knowable_by lab tr password);
+      domain_publishable tr domain;
+      assert(is_well_formed domain_t (is_knowable_by lab tr) domain)
+    | InitialStateServer client password -> 
+      assert(is_knowable_by lab tr password)
     | SendRequest hmeta_data ->
       comm_meta_data_knowable_proof tr (http_t web_types kv_types) state_t sess_id st prin hmeta_data
   );

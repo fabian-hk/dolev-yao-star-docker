@@ -15,7 +15,8 @@ open DY.Lib.Web
 
 [@@with_bytes bytes]
 type state_t =
-  | InitialState: client:principal -> server:principal -> password:bytes -> state_t
+  | InitialStateClient: domain:domain_t -> password:bytes -> state_t
+  | InitialStateServer: client:principal -> password:bytes -> state_t
   | SendRequest: http_meta_data web_types kv_types -> state_t
 
 %splice [ps_state_t] (gen_parser (`state_t))
@@ -61,12 +62,12 @@ instance http_config_login: http_config = {
 (*** API Functions ***)
 
 val build_login_request:
-  principal -> bytes ->
+  principal -> domain_t -> bytes ->
   (url_t kv_types & http_request_t web_types kv_types)
-let build_login_request client password =
+let build_login_request client domain password =
   let url:url_t kv_types = {
     protocol = HTTPS;
-    domain = ["dummyjson"; "com"];
+    domain = domain;
     port = 443;
     path = "/auth/login";
     query = [];
@@ -80,19 +81,19 @@ let build_login_request client password =
     {key = "username"; value = VP client};
     {key = "password"; value = VB password}
   ] in
-  (url, mk_http_request POST url headers body)
+  let http_req = mk_http_request POST url headers body in
+  (url, http_req)
 
 val api_request: communication_keys_sess_ids -> principal -> state_id -> traceful (option (state_id & timestamp))
 let api_request comm_keys_ids client sid =
   let*? st = get_state client sid in
-  guard_tr (InitialState? st);*?
-  let InitialState state_client server password = st in
-  guard_tr (client = state_client);*?
+  guard_tr (InitialStateClient? st);*?
+  let InitialStateClient domain password = st in
   
+  let server = http_config_login.domain_to_principal domain in
   trigger_event client (ClientAuthenticatesToServer client server);*
 
-  let (url, http_req) = build_login_request client password in
-  guard_tr (server = domain_to_principal url.domain);*?
+  let (url, http_req) = build_login_request client domain password in
   let*? (msg_id, hmeta_data) = send_https_request comm_keys_ids client url http_req in
   
   let* sid = new_session_id client in
@@ -124,16 +125,14 @@ let build_login_response client cookie =
 val api_server: communication_keys_sess_ids -> principal -> state_id -> timestamp -> traceful (option timestamp)
 let api_server comm_keys_ids server sid msg_id =
   let*? st = get_state server sid in
-  guard_tr (InitialState? st);*?
-  let InitialState client state_server password = st in
-  guard_tr (server = state_server);*?
+  guard_tr (InitialStateServer? st);*?
+  let InitialStateServer client password = st in
 
   let*? (http_req, hmeta_data) = receive_https_request comm_keys_ids server msg_id in
   guard_tr (get_user_agent_header http_req.headers = Some Server);*?
   guard_tr (login_request_credentials_match client password http_req);*?
 
-  let real_cookie = serialize usage_rand_string {rand = "secret"} in
-  let*? cookie_value = mk_comm_layer_response_nonce hmeta_data (AeadKey "" real_cookie) in
+  let*? cookie_value = mk_comm_layer_response_nonce hmeta_data NoUsage in
   let cookie = {
       name = "accessToken";
       value = cookie_value;

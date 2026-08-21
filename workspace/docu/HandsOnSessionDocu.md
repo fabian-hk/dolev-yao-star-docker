@@ -26,8 +26,8 @@ val get_state: principal -> sess_id -> traceful (option state_t)
 
 ```ocaml
 type url = {
-   protocol:string;
-   domain = {root_domain:principal; sub_domain:string};
+   protocol:protocol_t;
+   domain:domain_t;
    port:int;
    path:string;
    query:list (key_value ky_types);
@@ -49,8 +49,20 @@ type kv_types: eqtype =
  | VS: s:string -> kv_types
  | VP: p:principal -> kv_types
  | VB: b:bytes -> kv_types
- | VID: i:id -> kv_types
+ | VID: i:id_t -> kv_types
  | VI: i:int -> kv_types
+```
+
+**protocol_t type:**
+```ocaml
+type protocol_t =
+  | HTTP
+  | HTTPS
+```
+
+**domain_t type:**
+```ocaml
+type domain_t = list string
 ```
 
 ## Header
@@ -59,26 +71,30 @@ Example header:
 
 ```ocaml
 let headers:list header = [
-  Host "example.com" 443;
+  Host ["example"; "com"] 443;
   ContentType "application/json"
 ] in
 ```
 
 These are the possible types for the item in the headers list:
 ```ocaml
-type header (a:eqtype): eqtype =
- | Host: string -> nat -> header a
- | ContentType: string -> header a
- | CacheControl: string -> header a
- | Cookie: list (key_value a) -> header a
- | Authorization: auth_scheme -> header a
- | Accept: string -> header a
+type header_t (a:eqtype): eqtype =
+  | Host: domain:domain_t -> port:nat -> header_t a
+  | UserAgent: user_agent_t -> header_t a
+  | ContentType: string -> header_t a
+  | CacheControl: string -> header_t a
+  | Cookie: cookie_t -> header_t a
+  | SetCookie: cookie_t -> header_t a
+  | Authorization: auth_scheme_t -> header_t a
+  | Accept: string -> header_t a
+  | Location: url_t a -> header_t a
+  | Referer: url_t a -> header_t a
 ```
 
 ## Send Request
 ```ocaml
-val mk_http_request: method -> url -> (list header) -> web_types -> http_request (* Use empty_body as the web_types here *)
-val send_https_request: communication_keys_sess_ids -> principal -> url -> http_request -> traceful (option (timestamp & http_meta_data))
+val mk_http_request: method_t -> url_t -> (list header) -> web_types -> http_request_t (* Use empty_body as the web_types here *)
+val send_https_request: communication_keys_sess_ids -> principal -> url_t -> http_request_t -> traceful (option (timestamp & http_meta_data))
 ```
 
 Example send HTTPS request function call:
@@ -89,7 +105,8 @@ let*? (msg_id, hmeta_data) = send_https_request comm_keys_ids client url http_re
 
 These are the possible values for method:
 ```ocaml
-type method =
+type method_t =
+  | HEAD
   | GET
   | POST
 ```
@@ -97,7 +114,7 @@ type method =
 ## Receiving Request
 
 ```ocaml
-val receive_https_request: communication_keys_sess_ids -> principal -> timestamp -> traceful (option (http_request & http_meta_data))
+val receive_https_request: communication_keys_sess_ids -> principal -> timestamp -> traceful (option (http_request_t & http_meta_data))
 ```
 
 Example receive HTTPS request function call:
@@ -129,14 +146,14 @@ type web_kv: eqtype = {
 ## Send Response
 
 ```ocaml
-val mk_http_response: nat (* Status code *) -> (list header) -> web_types (* Body *) -> http_response
-val send_https_response: principal -> http_meta_data -> http_response -> traceful (option timestamp)
+val mk_http_response: nat (* Status code *) -> (list header) -> web_types (* Body *) -> http_response_t
+val send_https_response: principal -> http_meta_data -> http_response_t -> traceful (option timestamp)
 ```
 
 ## Receive Response
 
 ```ocaml
-val receive_https_response: http_meta_data -> principal -> timestamp -> traceful (option (http_response & http_meta_data))
+val receive_https_response: http_meta_data -> principal -> timestamp -> traceful (option http_response_t)
 ```
 
 ## Extract Data From JSON Bodies

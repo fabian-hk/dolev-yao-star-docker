@@ -11,13 +11,14 @@ open DY.Login.Protocol
 let run () : traceful (option unit)  =
   let _ = IO.debug_print_string "************* Programm Output *************\n" in
   let client:principal = "emilys" in
-  let server:principal = "Bob" in
+  let domain:domain_t = ["dummyjson"; "com"] in
+  let server = http_config_login.domain_to_principal domain in
 
   let real_password = serialize usage_rand_string {rand = "emilyspass"} in
   let* password = mk_rand (AeadKey "" real_password) (comm_label client server) 32 in
 
   let* sid_client = new_session_id client in
-  set_state client sid_client (InitialState client server password);*
+  set_state client sid_client (InitialStateClient domain password);*
 
   let*? comm_keys_ids_client, comm_keys_ids_server = initialize_communication_reqres (http_t web_types kv_types) client server in
   let*? sid, msg_id = api_request comm_keys_ids_client client sid_client in
