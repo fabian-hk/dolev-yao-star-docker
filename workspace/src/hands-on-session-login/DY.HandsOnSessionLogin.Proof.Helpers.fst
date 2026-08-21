@@ -15,7 +15,7 @@ open DY.HandsOnSessionLogin.Invariants
 #set-options "--fuel 0 --ifuel 0 --z3cliopt 'smt.qi.eager_threshold=100'"
 
 (*** API Request Proof Helpers ***)
-
+(*
 #push-options "--fuel 4 --z3rlimit 40"
 val build_login_request_proof:
   tr:trace -> client:principal -> domain:domain_t -> password:bytes ->

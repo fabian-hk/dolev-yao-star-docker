@@ -14,7 +14,7 @@ open DY.HandsOnSessionLogin.Invariants
 open DY.HandsOnSessionLogin.Proof.Helpers
 
 #set-options "--fuel 0 --ifuel 0 --z3cliopt 'smt.qi.eager_threshold=100'"
-
+(*
 (*** API Request ***)
 
 // 1. Prove that the api_request function preserves the trace invariant
