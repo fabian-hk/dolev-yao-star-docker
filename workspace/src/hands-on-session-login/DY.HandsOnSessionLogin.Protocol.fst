@@ -92,19 +92,7 @@ let build_login_request client domain password =
 
 val api_request: communication_keys_sess_ids -> principal -> state_id -> traceful (option (state_id & timestamp))
 let api_request comm_keys_ids client sid =
-  let*? st = get_state client sid in
-  guard_tr (InitialStateClient? st);*?
-  let InitialStateClient domain password = st in
-  
-  let server = http_config_login.domain_to_principal domain in
-  trigger_event client (ClientAuthenticatesToServer client server);*
-
-  let (url, http_req) = build_login_request client domain password in
-  let*? (msg_id, hmeta_data) = send_https_request comm_keys_ids client url http_req in
-  
-  let* sid = new_session_id client in
-  set_state client sid (SendRequest hmeta_data);*
-  return (Some (sid, msg_id))
+  return (Some (({the_id=0} <: state_id), (0 <: timestamp))) // TODO replace with actual values, e.g. return (Some (sid, msg_id))
 
 
 (* 4. Implement server:
