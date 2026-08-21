@@ -10,7 +10,8 @@
   ],
   "include_dirs": [
     "src/cat-fact-api",
-    "src/hands-on-session",
+    "src/hands-on-session-cat-fact-api",
+    "src/hands-on-session-login",
     "src/potter-api",
     "src/login",
 

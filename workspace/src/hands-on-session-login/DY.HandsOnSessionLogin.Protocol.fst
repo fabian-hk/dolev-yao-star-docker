@@ -1,4 +1,4 @@
-module DY.Login.Protocol
+module DY.HandsOnSessionLogin.Protocol
 
 open Comparse
 open DY.Core
