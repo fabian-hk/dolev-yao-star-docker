@@ -67,6 +67,7 @@ let wt_send_request_pred_key_username = {
   pred = (fun tr client server key_label http_req -> (
     match get_principal_from_json_encoded "username" http_req.body with
     | Some username -> (
+      // 1. Setup username request predicate
       username == client /\
       event_triggered tr client (ClientAuthenticatesToServer client server)
     )
@@ -95,6 +96,7 @@ let wt_send_response_pred_key_username = {
   pred = (fun tr server key_label http_req http_res -> (
     match get_string_from_json_encoded "username" http_res.body, get_set_cookie_header "accessToken" http_res.headers with
     | Some username, Some cookie -> (
+      // 2. Setup username response predicate
       event_triggered tr server (ServerAuthenticatedClient username server cookie <: event_t)
     )
     | _ -> False
@@ -146,7 +148,7 @@ instance browser_predicates_login: browser_preds web_types kv_types = {
 
 (*** Event invariant ***)
 
-// 1. Setup event predicate
+// 3. Setup event predicate
 #push-options "--ifuel 1"
 let event_predicate_login: event_predicate event_t =
   fun tr prin e ->
@@ -166,7 +168,7 @@ let event_predicate_login: event_predicate event_t =
 
 (*** Protocol state invariant ***)
 
-// 2. Setup state predicate
+// 4. Setup state predicate
 #push-options "--ifuel 1 --z3rlimit 80"
 let state_predicate_login: local_state_predicate state_t = {
   pred = (fun tr prin sess_id st ->
