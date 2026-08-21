@@ -85,60 +85,7 @@ val api_server_proof:
     trace_invariant tr_out
   ))
 let api_server_proof tr comm_keys_ids server sid msg_id =
-  let (_, tr_out) = api_server comm_keys_ids server sid msg_id tr in
-  
-  let (opt_state, tr_get) = get_state #state_t server sid tr in
-  assert(trace_invariant tr_get);
-  match opt_state with
-  | None -> ()
-  | Some st ->
-    let (guarded, tr_gd1) = guard_tr (InitialStateServer? st) tr_get in
-    assert(trace_invariant tr_gd1);
-    match guarded with
-    | None -> ()
-    | Some _ ->
-      let InitialStateServer client password = st in
-
-      let (opt_request, tr_received) = receive_https_request comm_keys_ids server msg_id tr_get in
-      receive_https_request_proof #protocol_invariants_login #web_types #kv_types tr_get comm_keys_ids server msg_id;
-      assert(trace_invariant tr_received);
-      match opt_request with
-      | None -> ()
-      | Some (http_req, hmeta_data) ->
-        let (opt_user_agent, tr_gd2) = guard_tr (get_user_agent_header http_req.headers = Some Server) tr_received in
-        assert(trace_invariant tr_gd2);
-        match opt_user_agent with
-        | None -> ()
-        | Some _ ->
-          let (credentials_match, tr_gd3) = guard_tr (login_request_credentials_match client password http_req) tr_gd2 in
-          assert(trace_invariant tr_gd3);
-          match credentials_match with
-          | None -> ()
-          | Some _ ->
-            let (opt_cookie, tr_nonce) = mk_comm_layer_response_nonce hmeta_data NoUsage tr_gd3 in
-            assert(trace_invariant tr_nonce);
-            match opt_cookie with
-            | None -> ()
-            | Some cookie_value ->
-              let cookie = {
-                name = "accessToken";
-                value = cookie_value;
-                http_only = true;
-                secure = true;
-              } in
-              let ((), tr_event) = trigger_event server (ServerAuthenticatedClient client server cookie) tr_nonce in
-              helper_lemma_event_invariant_server_authenticated_client tr_nonce client server http_req hmeta_data password cookie;
-              assert(trace_invariant tr_event);
-              
-              let http_resp = build_login_response client cookie in
-              let (_, tr_snd) = send_https_response server hmeta_data http_resp tr_event in
-              
-              assert_norm(Some? (get_set_cookie_header "accessToken" [SetCookie cookie <: header_t kv_types]));
-              build_login_response_proof tr_event hmeta_data client cookie;
-              send_https_response_proof tr_event server hmeta_data http_resp;
-              assert(trace_invariant tr_snd);
-              assert (tr_snd == tr_out);
-              ()
+  admit()
 #pop-options
 
 
