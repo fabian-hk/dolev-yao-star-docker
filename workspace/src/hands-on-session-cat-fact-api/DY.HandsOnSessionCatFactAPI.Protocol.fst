@@ -1,4 +1,4 @@
-module DY.CatFactAPI.Protocol
+module DY.HandsOnSessionCatFactAPI.Protocol
 
 open Comparse
 open DY.Core
