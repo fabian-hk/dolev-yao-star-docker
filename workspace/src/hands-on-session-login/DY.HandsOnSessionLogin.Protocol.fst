@@ -139,27 +139,7 @@ let build_login_response client cookie =
 
 val api_server: communication_keys_sess_ids -> principal -> state_id -> timestamp -> traceful (option timestamp)
 let api_server comm_keys_ids server sid msg_id =
-  let*? st = get_state server sid in
-  guard_tr (InitialStateServer? st);*?
-  let InitialStateServer client password = st in
-
-  let*? (http_req, hmeta_data) = receive_https_request comm_keys_ids server msg_id in
-  guard_tr (get_user_agent_header http_req.headers = Some Server);*?
-  guard_tr (login_request_credentials_match client password http_req);*?
-
-  let*? cookie_value = mk_comm_layer_response_nonce hmeta_data NoUsage in
-  let cookie = {
-    name = "accessToken";
-    value = cookie_value;
-    http_only = true;
-    secure = true;
-  } in
-
-  trigger_event server (ServerAuthenticatedClient client server cookie);*
-
-  let http_resp = build_login_response client cookie in
-  let*? msg_id_out = send_https_response server hmeta_data http_resp in
-  return (Some msg_id_out)
+  return (Some (0 <: timestamp)) // TODO replace with actual values, e.g. return (Some msg_id_out)
 
 
 (* 4. Implement server:
