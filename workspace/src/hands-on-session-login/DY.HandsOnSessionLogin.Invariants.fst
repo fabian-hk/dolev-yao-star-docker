@@ -14,7 +14,7 @@ open DY.HandsOnSessionLogin.Protocol
 #set-options "--fuel 0 --ifuel 0 --z3cliopt 'smt.qi.eager_threshold=100'"
 
 (*** Crypto predicates ***)
-
+(*
 instance crypto_usages_login: crypto_usages = default_crypto_usages
 
 let pke_predicates_login: list (string & pke_crypto_predicate) = [
