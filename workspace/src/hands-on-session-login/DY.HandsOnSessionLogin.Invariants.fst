@@ -146,6 +146,7 @@ instance browser_predicates_login: browser_preds web_types kv_types = {
 
 (*** Event invariant ***)
 
+// 1. Setup event predicate
 #push-options "--ifuel 1"
 let event_predicate_login: event_predicate event_t =
   fun tr prin e ->
@@ -165,6 +166,7 @@ let event_predicate_login: event_predicate event_t =
 
 (*** Protocol state invariant ***)
 
+// 2. Setup state predicate
 #push-options "--ifuel 1 --z3rlimit 80"
 let state_predicate_login: local_state_predicate state_t = {
   pred = (fun tr prin sess_id st ->

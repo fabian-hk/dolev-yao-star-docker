@@ -11,7 +11,7 @@ open DY.Lib.Web
   https://dummyjson.com/auth/login
 *)
 
-(*** Protocol State Definition ***)
+(* 1. Define and setup state *)
 
 [@@with_bytes bytes]
 type state_t =
@@ -31,7 +31,7 @@ instance local_state_state_t: local_state state_t = {
 }
 
 
-(*** Event Definition ***)
+(* 2. Define and setup events *)
 
 [@@with_bytes bytes]
 type event_t =
@@ -48,7 +48,7 @@ instance event_login: event event_t = {
 }
 
 
-(*** HTTP Library Initialization ***)
+(* 3. Setup HTTP library *)
 
 instance http_config_login: http_config = {
   domain_to_principal = (fun domain -> (
@@ -61,6 +61,12 @@ instance http_config_login: http_config = {
 
 (*** API Functions ***)
 
+(* 3. Implement client send request:
+  - Load initial state
+  - Trigger client authenticates event
+  - Build and send HTTPS request
+  - Save state with request metadata
+ *)
 val build_login_request:
   principal -> domain_t -> bytes ->
   (url_t kv_types & http_request_t web_types kv_types)
@@ -100,6 +106,14 @@ let api_request comm_keys_ids client sid =
   set_state client sid (SendRequest hmeta_data);*
   return (Some (sid, msg_id))
 
+
+(* 4. Implement server:
+  - Load initial state
+  - Receive HTTPS request
+  - Create session cookie
+  - Trigger server authenticated client event
+  - Build and send HTTPS response
+ *)
 val login_request_credentials_match:
   principal -> bytes -> http_request_t web_types kv_types -> bool
 let login_request_credentials_match client password http_req =
@@ -147,6 +161,13 @@ let api_server comm_keys_ids server sid msg_id =
   let*? msg_id_out = send_https_response server hmeta_data http_resp in
   return (Some msg_id_out)
 
+
+(* 4. Implement server:
+  - Load send request state
+  - Receive HTTPS response
+  - Parse, validate, and print response
+  - Trigger client received cookie event
+ *)
 val process_login_response:
   client:principal -> http_response_t web_types kv_types -> option cookie_t
 let process_login_response client http_res =

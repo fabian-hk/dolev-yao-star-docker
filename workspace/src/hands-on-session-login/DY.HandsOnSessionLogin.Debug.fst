@@ -10,10 +10,12 @@ open DY.HandsOnSessionLogin.Protocol
 
 let debug () : traceful (option unit)  =
   let _ = IO.debug_print_string "************* Trace *************\n" in
+  // 1. Initialize principals and domains
   let client:principal = "emilys" in
   let domain:domain_t = ["dummyjson"; "com"] in
   let server = http_config_login.domain_to_principal domain in
 
+  // 2. Initialize initial states
   let real_password = serialize usage_rand_string {rand = "emilyspass"} in
   let* password = mk_rand (AeadKey "" real_password) (comm_label client server) 32 in
 
@@ -23,11 +25,12 @@ let debug () : traceful (option unit)  =
   let* sid_server = new_session_id server in
   set_state server sid_server (InitialStateServer client password);*
 
+  // 3. Initialize communication layer
   let*? comm_keys_ids_client, comm_keys_ids_server = initialize_communication_reqres (http_t web_types kv_types) client server in
+  
+  // 4. Call protocol functions
   let*? sid, msg_id = api_request comm_keys_ids_client client sid_client in
-
   let*? msg_id = api_server comm_keys_ids_server server sid_server msg_id in
-
   let*? () = api_response client sid msg_id in
 
   let* tr = get_trace in
