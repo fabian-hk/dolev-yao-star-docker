@@ -33,30 +33,8 @@ instance local_state_state_t: local_state state_t = {
 
 (* 2. Define and setup events *)
 
-[@@with_bytes bytes]
-type event_t =
-  | ClientAuthenticatesToServer: client:principal -> server:principal -> event_t
-  | ServerAuthenticatedClient: client:principal -> server:principal -> cookie:cookie_t -> event_t
-  | ClientReceivedCookie: client:principal -> server:principal -> cookie:cookie_t -> event_t
-
-%splice [ps_event_t] (gen_parser (`event_t))
-%splice [ps_event_t_is_well_formed] (gen_is_well_formed_lemma (`event_t))
-
-instance event_login: event event_t = {
-  tag = "LoginAPI.Event";
-  format = mk_parseable_serializeable ps_event_t;
-}
-
 
 (* 3. Setup HTTP library *)
-
-instance http_config_login: http_config = {
-  domain_to_principal = (fun domain -> (
-    match domain with
-    | ["dummyjson"; "com"] -> "Bob"
-    | _ -> "Unknown")
-  );
-}
 
 
 (*** API Functions ***)
