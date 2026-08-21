@@ -119,7 +119,8 @@ let build_login_response client cookie =
     {key = "username"; value = VS client};
     {key =  "email"; value = VS "emily.johnson@x.dummyjson.com"};
     {key = "firstName"; value = VS "Emily"};
-    {key = "lastName"; value = VS "Johnson"}] in
+    {key = "lastName"; value = VS "Johnson"}
+  ] in
   mk_http_response 200 headers body
 
 val api_server: communication_keys_sess_ids -> principal -> state_id -> timestamp -> traceful (option timestamp)
@@ -134,11 +135,11 @@ let api_server comm_keys_ids server sid msg_id =
 
   let*? cookie_value = mk_comm_layer_response_nonce hmeta_data NoUsage in
   let cookie = {
-      name = "accessToken";
-      value = cookie_value;
-      http_only = true;
-      secure = true;
-    } in
+    name = "accessToken";
+    value = cookie_value;
+    http_only = true;
+    secure = true;
+  } in
 
   trigger_event server (ServerAuthenticatedClient client server cookie);*
 
