@@ -14,31 +14,8 @@ open DY.Lib.Web
 
 (* 1. Define and setup state *)
 
-[@@with_bytes bytes]
-type state_t =
-  | SendRequest: http_meta_data web_types kv_types -> state_t
-
-%splice [ps_state_t] (gen_parser (`state_t))
-%splice [ps_state_t_is_well_formed] (gen_is_well_formed_lemma (`state_t))
-
-instance parseable_serializeable_bytes_state_t: parseable_serializeable bytes state_t
-  = mk_parseable_serializeable ps_state_t
-
-instance local_state_state_t: local_state state_t = {
-  tag = "CatFactAPI.State";
-  format = parseable_serializeable_bytes_state_t;
-}
-
 
 (* 2. Setup HTTP library *)
-
-instance http_config_cat_fact_api: http_config = {
-  domain_to_principal = (fun domain -> (
-    match domain with
-    | ["catfact"; "ninja"] -> "Bob"
-    | _ -> "Unknown")
-  );
-}
 
 
 (*** API Functions ***)
