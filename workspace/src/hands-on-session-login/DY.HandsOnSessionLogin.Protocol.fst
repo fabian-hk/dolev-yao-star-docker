@@ -13,23 +13,6 @@ open DY.Lib.Web
 
 (* 1. Define and setup state *)
 
-[@@with_bytes bytes]
-type state_t =
-  | InitialStateClient: domain:domain_t -> password:bytes -> state_t
-  | InitialStateServer: client:principal -> password:bytes -> state_t
-  | SendRequest: http_meta_data web_types kv_types -> state_t
-
-%splice [ps_state_t] (gen_parser (`state_t))
-%splice [ps_state_t_is_well_formed] (gen_is_well_formed_lemma (`state_t))
-
-instance parseable_serializeable_bytes_state_t: parseable_serializeable bytes state_t
-  = mk_parseable_serializeable ps_state_t
-
-instance local_state_state_t: local_state state_t = {
-  tag = "LoginAPI.State";
-  format = parseable_serializeable_bytes_state_t;
-}
-
 
 (* 2. Define and setup events *)
 
