@@ -128,7 +128,7 @@ clean:
 # Run extracted OCaml (local build)
 OCAMLBUILD ?= ocamlbuild
 
-OCAML_MAIN ?= DY_HandsOnSessionCatFactAPI_Debug
+OCAML_MAIN ?= DY_HandsOnSessionLogin_Debug
 OCAML_EXE  := $(OCAML_MAIN).native
 STAGE_DIR  := $(OBJ_DIR)/_ocaml_stage
 
@@ -161,7 +161,7 @@ $(STAGE_DIR)/$(OCAML_EXE): $(OCAML_INPUTS) | $(STAGE_DIR)
 		-pkg curly \
 		-cflags "-w -a -thread" "$(OCAML_EXE)"
 
-EXTRACTION_MAIN ?= DY_HandsOnSessionCatFactAPI_Extraction
+EXTRACTION_MAIN ?= DY_HandsOnSessionLogin_Extraction
 EXTRACTIONL_EXE  := $(EXTRACTION_MAIN).native
 EXTRACTION_STAGE_DIR  := $(OBJ_DIR)/_ocaml_stage_extraction
 
