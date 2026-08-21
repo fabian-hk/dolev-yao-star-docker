@@ -77,8 +77,4 @@ let api_server comm_keys_ids server msg_id =
 (* 5. Implement client receive response and print result function *)
 val api_response: principal -> state_id -> timestamp -> traceful (option unit)
 let api_response client sid msg_id =
-  let*? SendRequest hmeta_data = get_state client sid in
-  let*? http_res = receive_https_response hmeta_data client msg_id in
-  let*? fact = return (get_string_from_json_encoded "fact" http_res.body) in
-  let _ = IO.debug_print_string (Printf.sprintf "\nReceived fact: %s\n\n" fact) in
   return (Some ())
