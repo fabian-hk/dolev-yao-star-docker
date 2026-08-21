@@ -67,6 +67,28 @@ instance http_config_login: http_config = {
   - Build and send HTTPS request
   - Save state with request metadata
  *)
+val build_login_request:
+  principal -> domain_t -> bytes ->
+  (url_t kv_types & http_request_t web_types kv_types)
+let build_login_request client domain password =
+  let url:url_t kv_types = {
+    protocol = HTTPS;
+    domain = domain;
+    port = 443;
+    path = "/auth/login";
+    query = [];
+    fragment = {identifier = ""; data = []};
+  } in
+  let headers:list (header_t kv_types) = [
+    UserAgent Server;
+    ContentType "application/json";
+  ] in
+  let body = JSON [
+    {key = "username"; value = VP client};
+    {key = "password"; value = VB password}
+  ] in
+  let http_req = mk_http_request POST url headers body in
+  (url, http_req)
 
 val api_request: communication_keys_sess_ids -> principal -> state_id -> traceful (option (state_id & timestamp))
 let api_request comm_keys_ids client sid =
