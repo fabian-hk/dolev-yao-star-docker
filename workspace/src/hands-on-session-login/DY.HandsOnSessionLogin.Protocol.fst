@@ -114,28 +114,6 @@ let api_request comm_keys_ids client sid =
   - Trigger server authenticated client event
   - Build and send HTTPS response
  *)
-val login_request_credentials_match:
-  principal -> bytes -> http_request_t web_types kv_types -> bool
-let login_request_credentials_match client password http_req =
-  match get_principal_from_json_encoded "username" http_req.body,
-        get_bytes_from_json_encoded "password" http_req.body with
-  | Some client', Some password' -> client = client' && password = password'
-  | _ -> false
-
-val build_login_response: principal -> cookie_t -> http_response_t web_types kv_types
-let build_login_response client cookie =
-  let headers:list (header_t kv_types) = [
-    ContentType "application/json";
-    SetCookie cookie
-  ] in
-  let body = JSON [{
-    key = "id"; value = VI 1 };
-    {key = "username"; value = VS client};
-    {key =  "email"; value = VS "emily.johnson@x.dummyjson.com"};
-    {key = "firstName"; value = VS "Emily"};
-    {key = "lastName"; value = VS "Johnson"}
-  ] in
-  mk_http_response 200 headers body
 
 val api_server: communication_keys_sess_ids -> principal -> state_id -> timestamp -> traceful (option timestamp)
 let api_server comm_keys_ids server sid msg_id =
