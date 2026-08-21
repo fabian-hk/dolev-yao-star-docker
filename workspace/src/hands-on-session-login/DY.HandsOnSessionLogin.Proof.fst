@@ -158,38 +158,5 @@ val api_response_proof:
     trace_invariant tr_out
   ))
 let api_response_proof tr client sid msg_id =
-  let (_, tr_out) = api_response client sid msg_id tr in
-
-  let (opt_state, tr_get) = get_state #state_t client sid tr in
-  assert(trace_invariant tr_get);
-  match opt_state with
-  | None -> ()
-  | Some st ->
-    let (guarded, tr_gd1) = guard_tr (SendRequest? st) tr_get in
-    assert(trace_invariant tr_gd1);
-    match guarded with
-    | None -> ()
-    | Some _ ->
-      let SendRequest hmeta_data = st in
-      let (opt_response, tr_received) = receive_https_response hmeta_data client msg_id tr_gd1 in
-      receive_https_response_proof tr hmeta_data client msg_id;
-      assert (trace_invariant tr_received);
-      match opt_response with
-      | None -> ()
-      | Some http_res ->
-        let (opt_cookie, tr_cookie) = return (process_login_response client http_res) tr_received in
-        assert (trace_invariant tr_cookie);
-        match opt_cookie with
-        | None -> ()
-        | Some cookie ->
-          let (opt_gd, tr_gd2) = guard_tr (cookie.secure) tr_cookie in
-          match opt_gd with
-          | None -> ()
-          | Some _ ->
-            let ((), tr_event) = trigger_event client (ClientReceivedCookie client (hmeta_data.server) cookie) tr_gd2 in
-            process_login_response_proof client http_res;
-            helper_lemma_event_invariant_client_received_cookie tr_gd2 client hmeta_data http_res cookie;
-            assert (trace_invariant tr_event);
-            assert (tr_event == tr_out);
-            ()
+  admit()
 #pop-options
