@@ -22,7 +22,7 @@ FSTAR_EXE ?= fstar.exe
 Z3_EXE    ?= z3-4.15.3
 
 # Project configuration (relative)
-SOURCE_ROOTS := $(PROJECT_HOME)/src/cat-fact-api $(PROJECT_HOME)/src/hands-on-session $(PROJECT_HOME)/src/potter-api $(PROJECT_HOME)/src/login
+SOURCE_ROOTS := $(PROJECT_HOME)/src/cat-fact-api $(PROJECT_HOME)/src/hands-on-session-cat-fact-api $(PROJECT_HOME)/src/hands-on-session-login $(PROJECT_HOME)/src/potter-api $(PROJECT_HOME)/src/login
 CACHE_DIR  := $(PROJECT_HOME)/cache
 HINT_DIR   := $(PROJECT_HOME)/hints
 OBJ_DIR    := $(PROJECT_HOME)/obj
@@ -128,7 +128,7 @@ clean:
 # Run extracted OCaml (local build)
 OCAMLBUILD ?= ocamlbuild
 
-OCAML_MAIN ?= DY_HandsOnSession_Debug
+OCAML_MAIN ?= DY_HandsOnSessionCatFactAPI_Debug
 OCAML_EXE  := $(OCAML_MAIN).native
 STAGE_DIR  := $(OBJ_DIR)/_ocaml_stage
 
@@ -161,7 +161,7 @@ $(STAGE_DIR)/$(OCAML_EXE): $(OCAML_INPUTS) | $(STAGE_DIR)
 		-pkg curly \
 		-cflags "-w -a -thread" "$(OCAML_EXE)"
 
-EXTRACTION_MAIN ?= DY_HandsOnSession_Extraction
+EXTRACTION_MAIN ?= DY_HandsOnSessionCatFactAPI_Extraction
 EXTRACTIONL_EXE  := $(EXTRACTION_MAIN).native
 EXTRACTION_STAGE_DIR  := $(OBJ_DIR)/_ocaml_stage_extraction
 

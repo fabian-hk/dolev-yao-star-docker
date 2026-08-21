@@ -1,4 +1,4 @@
-module DY.Login.Invariants
+module DY.HandsOnSessionLogin.Invariants
 
 open Comparse
 open FStar.List.Tot { for_allP, for_allP_eq, memP }
@@ -9,7 +9,7 @@ open DY.Lib.Web
 open DY.Lib.Web.HTTP.Invariants
 open DY.Lib.Web.Data.Default.Invariants
 
-open DY.Login.Protocol
+open DY.HandsOnSessionLogin.Protocol
 
 #set-options "--fuel 0 --ifuel 0 --z3cliopt 'smt.qi.eager_threshold=100'"
 

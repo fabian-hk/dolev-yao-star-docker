@@ -1,4 +1,4 @@
-module DY.CatFactAPI.Extraction
+module DY.HandsOnSessionCatFactAPI.Extraction
 
 open Comparse
 open DY.Core
@@ -6,7 +6,7 @@ open DY.Lib
 
 open DY.Lib.Web
 
-open DY.CatFactAPI.Protocol
+open DY.HandsOnSessionCatFactAPI.Protocol
 
 let run () : traceful (option unit)  =
   let _ = IO.debug_print_string "************* Programm Output *************\n" in
