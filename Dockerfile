@@ -11,7 +11,9 @@ RUN /app/code-server/bin/code-server \
 
 RUN mkdir -p /config/data/Machine && cat > /config/data/Machine/settings.json <<'EOF'
 {
-	"fstarVSCodeAssistant.verifyOnOpen": true
+	"fstarVSCodeAssistant.verifyOnOpen": true,
+	"security.workspace.trust.enabled": false,
+	"git.openRepositoryInParentFolders": "always"
 }
 EOF
 
