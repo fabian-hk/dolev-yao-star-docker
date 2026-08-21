@@ -168,24 +168,6 @@ let api_server comm_keys_ids server sid msg_id =
   - Parse, validate, and print response
   - Trigger client received cookie event
  *)
-val process_login_response:
-  client:principal -> http_response_t web_types kv_types -> option cookie_t
-let process_login_response client http_res =
-  let? id = get_int_from_json_encoded "id" http_res.body in
-  let _ = IO.debug_print_string (Printf.sprintf "\nReceived id: %d\n" id) in
-  let? username = get_string_from_json_encoded "username" http_res.body in
-  let _ = IO.debug_print_string (Printf.sprintf "Received username: %s\n" username) in
-  guard (username = client);?
-  let? email = get_string_from_json_encoded "email" http_res.body in
-  let _ = IO.debug_print_string (Printf.sprintf "Received email: %s\n" email) in
-  let? firstName = get_string_from_json_encoded "firstName" http_res.body in
-  let _ = IO.debug_print_string (Printf.sprintf "Received firstName: %s\n" firstName) in
-  let? lastName = get_string_from_json_encoded "lastName" http_res.body in
-  let _ = IO.debug_print_string (Printf.sprintf "Received lastName: %s\n\n" lastName) in
-  let? cookie = get_set_cookie_header "accessToken" http_res.headers in
-  guard (cookie.secure);?
-  let _ = IO.debug_print_string (Printf.sprintf "Received cookie: %s\n" (bytes_to_string cookie.value)) in
-  Some cookie
 
 val api_response: principal -> state_id -> timestamp -> traceful (option unit)
 let api_response client sid msg_id =
