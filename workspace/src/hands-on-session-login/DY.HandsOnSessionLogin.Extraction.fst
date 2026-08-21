@@ -1,4 +1,4 @@
-module DY.Login.Extraction
+module DY.HandsOnSessionLogin.Extraction
 
 open Comparse
 open DY.Core
@@ -6,7 +6,7 @@ open DY.Lib
 
 open DY.Lib.Web
 
-open DY.Login.Protocol
+open DY.HandsOnSessionLogin.Protocol
 
 let run () : traceful (option unit)  =
   let _ = IO.debug_print_string "************* Programm Output *************\n" in
