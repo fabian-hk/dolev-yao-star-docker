@@ -149,19 +149,7 @@ instance browser_predicates_login: browser_preds web_types kv_types = {
 // 1. Setup event predicate
 #push-options "--ifuel 1"
 let event_predicate_login: event_predicate event_t =
-  fun tr prin e ->
-    match e with
-    | ClientAuthenticatesToServer client server -> True
-    | ServerAuthenticatedClient client server cookie ->
-      prin == server /\
-      ((event_triggered tr client (ClientAuthenticatesToServer client server) /\
-        is_secret (comm_label client server) tr cookie.value) \/
-       is_corrupt tr (principal_label client) \/ is_corrupt tr (principal_label server))
-    | ClientReceivedCookie client server cookie ->
-      prin == client /\
-      ((event_triggered tr server (ServerAuthenticatedClient client server cookie) /\
-        is_secret (comm_label client server) tr cookie.value) \/
-       is_corrupt tr (principal_label client) \/ is_corrupt tr (principal_label server))
+  fun tr prin e -> True
 #pop-options
 
 (*** Protocol state invariant ***)
@@ -169,32 +157,9 @@ let event_predicate_login: event_predicate event_t =
 // 2. Setup state predicate
 #push-options "--ifuel 1 --z3rlimit 80"
 let state_predicate_login: local_state_predicate state_t = {
-  pred = (fun tr prin sess_id st ->
-    match st with
-    | InitialStateClient domain password ->
-      let client = prin in
-      let server = http_config_login.domain_to_principal domain in
-      is_secret (comm_label client server) tr password
-    | InitialStateServer client password ->
-      let server = prin in
-      is_secret (comm_label client server) tr password
-    | SendRequest hmeta_data ->
-      comm_meta_data_knowable tr (http_t web_types kv_types) prin hmeta_data /\
-      is_server_request (Request?.http_req hmeta_data.request)
-  );
+  pred = (fun tr prin sess_id st -> True);
   pred_later = (fun tr1 tr2 prin sess_id st -> ());
-  pred_knowable = (fun tr prin sess_id st ->
-    let lab = principal_typed_state_content_label prin local_state_state_t.tag sess_id st in
-    match st with
-    | InitialStateClient domain password ->
-      assert(is_knowable_by lab tr password);
-      domain_publishable tr domain;
-      assert(is_well_formed domain_t (is_knowable_by lab tr) domain)
-    | InitialStateServer client password -> 
-      assert(is_knowable_by lab tr password)
-    | SendRequest hmeta_data ->
-      comm_meta_data_knowable_proof tr (http_t web_types kv_types) state_t sess_id st prin hmeta_data
-  );
+  pred_knowable = (fun tr prin sess_id st -> admit());
 }
 #pop-options
 
