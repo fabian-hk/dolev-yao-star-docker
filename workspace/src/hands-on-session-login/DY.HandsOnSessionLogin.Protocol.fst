@@ -189,11 +189,4 @@ let process_login_response client http_res =
 
 val api_response: principal -> state_id -> timestamp -> traceful (option unit)
 let api_response client sid msg_id =
-  let*? st = get_state client sid in
-  guard_tr (SendRequest? st);*?
-  let SendRequest hmeta_data = st in
-  let*? http_res = receive_https_response hmeta_data client msg_id in
-  let*? cookie = return (process_login_response client http_res) in
-  guard_tr (cookie.secure);*?
-  trigger_event client (ClientReceivedCookie client hmeta_data.server cookie);*
   return (Some ())
