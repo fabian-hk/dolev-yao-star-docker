@@ -46,23 +46,7 @@ instance http_config_cat_fact_api: http_config = {
 (* 3. Implement client send request and set state function *)
 val api_request: communication_keys_sess_ids -> principal -> traceful (option (state_id & timestamp))
 let api_request comm_keys_ids client =
-  let url:url_t kv_types = {
-    protocol = HTTPS;
-    domain = ["catfact"; "ninja"];
-    port = 443;
-    path = "/fact";
-    query = [{ key = "max_length"; value = VI 140 } <: key_value kv_types];
-    fragment = {identifier = ""; data = []};
-  } in
-  let headers:list (header_t kv_types) = [
-    Accept "application/json";
-  ] in
-  let http_req = mk_http_request GET url headers empty_body in
-  let*? (msg_id, hmeta_data) = send_https_request comm_keys_ids client url http_req in
-
-  let* sid = new_session_id client in
-  set_state client sid (SendRequest hmeta_data);*
-  return (Some (sid, msg_id))
+  return (Some (({the_id=0} <: state_id), (0 <: timestamp))) // TODO replace with actual values, e.g. return (Some (sid, msg_id))
 
 (* 4. Implement server function that receives the request and sends a response *)
 val api_server: communication_keys_sess_ids -> principal -> timestamp -> traceful (option timestamp)
