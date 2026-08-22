@@ -12,6 +12,22 @@ let*?  (* Computation that depends on the global trace and may return None on fa
 let	   (* Computation that does not depend on the global trace and cannot fail *)
 ```
 
+## Guards
+
+Guards stop the current computation if their condition is false. Use `guard_tr` in a computation that depends on the global trace and `guard` in a computation returning an `option`.
+
+```ocaml
+val guard_tr: bool -> traceful (option unit)
+val guard: bool -> option unit
+```
+
+Example guard function calls:
+
+```ocaml
+guard_tr (InitialStateClient? state);*?
+guard (username = client);?
+```
+
 ## State Handling
 
 The following state handling functions assume that the protocol uses the type `state_t` for the protocol.
@@ -20,6 +36,20 @@ The following state handling functions assume that the protocol uses the type `s
 val new_session_id: principal -> traceful sess_id
 val set_state: principal -> sess_id -> state_t -> unit
 val get_state: principal -> sess_id -> traceful (option state_t)
+```
+
+## Trigger an Event
+
+The following function assumes that the protocol uses the type `event_t` for its events.
+
+```ocaml
+val trigger_event: principal -> event_t -> traceful unit
+```
+
+Example event function call:
+
+```ocaml
+trigger_event client (ClientAuthenticatesToServer client server);*
 ```
 
 ## URL
@@ -91,6 +121,20 @@ type header_t (a:eqtype): eqtype =
   | Referer: url_t a -> header_t a
 ```
 
+## Extract Data From Headers
+
+```ocaml
+val get_user_agent_header: list header -> option user_agent_t
+val get_set_cookie_header: string -> list header -> option cookie_t
+```
+
+Example header extraction function calls:
+
+```ocaml
+guard_tr (get_user_agent_header http_req.headers = Some Server);*?
+let? cookie = get_set_cookie_header "accessToken" http_res.headers in
+```
+
 ## Send Request
 ```ocaml
 val mk_http_request: method_t -> url_t -> (list header) -> web_types -> http_request_t (* Use empty_body as the web_types here *)
@@ -150,6 +194,20 @@ val mk_http_response: nat (* Status code *) -> (list header) -> web_types (* Bod
 val send_https_response: principal -> http_meta_data -> http_response_t -> traceful (option timestamp)
 ```
 
+## Create a Response Nonce
+
+The response nonce can, for example, be used as a fresh session-cookie value. `NoUsage` means that no more specific cryptographic usage is assigned to the nonce.
+
+```ocaml
+val mk_comm_layer_response_nonce: http_meta_data -> usage -> traceful (option bytes)
+```
+
+Example response nonce function call:
+
+```ocaml
+let*? cookie_value = mk_comm_layer_response_nonce hmeta_data NoUsage in
+```
+
 ## Receive Response
 
 ```ocaml
@@ -160,10 +218,19 @@ val receive_https_response: http_meta_data -> principal -> timestamp -> traceful
 
 ```ocaml
 val get_string_from_json_encoded: string -> web_types -> option string
-val get_int_from_json_encoded: string -> web_types -> option int in
+val get_int_from_json_encoded: string -> web_types -> option int
+val get_principal_from_json_encoded: string -> web_types -> option principal
+val get_bytes_from_json_encoded: string -> web_types -> option bytes
 ```
 
-Example extraction function call:
+Example extraction function calls in a computation returning an `option`:
+
+```ocaml
+let? username = get_principal_from_json_encoded "username" http_req.body in
+let? password = get_bytes_from_json_encoded "password" http_req.body in
+```
+
+When extracting an optional value inside a computation that depends on the global trace, lift the result as follows:
 
 ```ocaml
 let*? username = return (get_string_from_json_encoded "username" http_res.body) in

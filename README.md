@@ -38,7 +38,7 @@ docker compose up
 
 - Open http://localhost:8443 in your browser
 - Make sure to trust the workspace
-- Open a terminal and run `make` to build the project. It should successfully verify all files.
+- Open a terminal and run `make -j 4` to build the project. It should successfully verify all files.
 
 ## Troubleshooting
 
